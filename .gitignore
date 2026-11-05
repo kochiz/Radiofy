@@ -1,0 +1,15 @@
+.DS_Store
+**/.DS_Store
+*.app/
+radio/Radiofy.app/
+releases/
+radio/AppIcon.iconset/
+radio/icon-master.jpg
+radio/icon-master.png
+.cursor/
+**/debug-*.log
+RadioMiniBuild/
+*.o
+radio/wave-lab.html
+radio/wave-lab-v2.html
+radio/skin-lab.html

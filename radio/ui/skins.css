@@ -1,0 +1,504 @@
+/* Radiofy skins — MISMA estructura en todos.
+   Solo cambian: variables, fondo/hero, y chrome del dial.
+   Layout vive en app.css. Aquí NO se reordena art/meta/btns/ft. */
+
+/* skin / tools del footer: siempre visibles en TODOS los skins */
+.ft-tools{display:flex!important}
+#skinBtn{display:grid!important}
+
+/* ========== NEON (base) ========== */
+:root,
+[data-skin="neon"]{
+  --bg0: rgba(28,24,52,.95);
+  --bg1: rgba(10,8,22,.98);
+  --stroke: rgba(140,100,255,.35);
+  --accent: #3ee6ff;
+  --accent2: #b44cff;
+  --accent3: #ff4fd8;
+  --needle: #c77bff;
+  --needle-glow: #a66bff;
+  --fill: linear-gradient(90deg,#3ee6ff,#7aa8ff 50%,#b44cff);
+  --cam-glow: rgba(62,230,255,.3);
+  --sw-on: #3ee6ff;
+  --radius: 18px;
+  --art-radius: 14px;
+  --dial-radius: 14px;
+}
+[data-skin="neon"] .app{
+  background:#070510;
+  box-shadow:inset 0 0 0 1px rgba(180,76,255,.3);
+}
+[data-skin="neon"] .studio-hero{
+  display:block;position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(7,5,16,.25) 0%,rgba(7,5,16,.35) 42%,rgba(7,5,16,.88) 78%,#070510 100%),
+    radial-gradient(ellipse 90% 45% at 50% -8%,rgba(180,76,255,.2),transparent 55%),
+    url("neon-hero.jpg") center 30% / cover no-repeat;
+}
+[data-skin="neon"] .hd,
+[data-skin="neon"] .now-card,
+[data-skin="neon"] .dial,
+[data-skin="neon"] .hzr,
+[data-skin="neon"] .btns,
+[data-skin="neon"] .dv,
+[data-skin="neon"] .ft{position:relative;z-index:2}
+[data-skin="neon"] .hd h1{
+  letter-spacing:.04em;text-transform:uppercase;font-size:16px;
+  text-shadow:0 0 12px rgba(62,230,255,.65),0 0 22px rgba(180,76,255,.4);
+}
+/* Dial neon: tubo de plasma cian→violeta (no el FM genérico) */
+[data-skin="neon"] .dial{
+  height:46px;border-radius:16px;overflow:hidden;
+  background:
+    linear-gradient(180deg,rgba(70,40,120,.55) 0%,rgba(18,12,40,.92) 42%,rgba(6,4,18,.98) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(180,76,255,.55),
+    inset 0 2px 14px rgba(0,0,0,.55),
+    0 0 18px rgba(62,230,255,.18),
+    0 0 28px rgba(180,76,255,.12);
+}
+[data-skin="neon"] .dial:before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(180deg,rgba(62,230,255,.14),transparent 38%,transparent 70%,rgba(180,76,255,.1));
+}
+[data-skin="neon"] .sc{z-index:2}
+[data-skin="neon"] .sc text{fill:rgba(210,190,255,.85);font-size:10px;letter-spacing:.06em}
+[data-skin="neon"] .sc line{stroke:rgba(120,200,255,.35)}
+[data-skin="neon"] .sc line.mj{stroke:rgba(62,230,255,.75);stroke-width:1.4}
+[data-skin="neon"] .nd{top:4px;height:38px;width:3px;z-index:3}
+[data-skin="neon"] .nd i{
+  width:3px;border-radius:2px;
+  background:linear-gradient(180deg,transparent,#3ee6ff 18%,#b44cff 55%,#ff4fd8 82%,transparent);
+  box-shadow:0 0 14px #b44cff,0 0 6px #3ee6ff,0 0 2px #fff;
+}
+[data-skin="neon"] .hzr span{
+  background:rgba(20,12,40,.75);color:#d8c0ff;
+  box-shadow:inset 0 0 0 .5px rgba(180,76,255,.5),0 0 10px rgba(180,76,255,.22);
+}
+[data-skin="neon"] .vinyl-stage .arm,
+[data-skin="neon"] .studio-wave,
+[data-skin="neon"] .platter{display:none!important}
+
+/* ========== CLASSIC ========== */
+[data-skin="classic"]{
+  --bg0: #24160e;
+  --bg1: #120c08;
+  --stroke: rgba(212,175,110,.45);
+  --accent: #e8a04a;
+  --accent2: #c8792a;
+  --accent3: #f0c27a;
+  --needle: #ff9a3c;
+  --needle-glow: #ff7a18;
+  --fill: linear-gradient(90deg,#ff9a3c,#e07020);
+  --cam-glow: rgba(232,160,74,.3);
+  --sw-on: #e07020;
+  --radius: 18px;
+  --art-radius: 12px;
+  --dial-radius: 12px;
+}
+[data-skin="classic"] .app{
+  background:#140c08;
+  box-shadow:inset 0 0 0 1px rgba(212,175,110,.4);
+}
+[data-skin="classic"] .studio-hero{
+  display:block;position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(20,12,8,.2) 0%,rgba(20,12,8,.35) 45%,rgba(20,12,8,.82) 78%,#120c08 100%),
+    url("classic-hero.jpg") center 22% / cover no-repeat;
+  filter:saturate(1.1) contrast(1.05);
+}
+[data-skin="classic"] .hd,
+[data-skin="classic"] .now-card,
+[data-skin="classic"] .dial,
+[data-skin="classic"] .hzr,
+[data-skin="classic"] .btns,
+[data-skin="classic"] .dv,
+[data-skin="classic"] .ft{position:relative;z-index:2}
+[data-skin="classic"] .hd h1{
+  font-family:"Snell Roundhand","Segoe Script","Brush Script MT",cursive;
+  font-size:22px;font-weight:500;color:#f0d9a8;letter-spacing:.02em;text-transform:none;
+  text-shadow:0 1px 0 #000,0 0 10px rgba(240,180,80,.3);
+}
+[data-skin="classic"] .wstage{opacity:.3}
+[data-skin="classic"] .art{
+  box-shadow:inset 0 0 0 2px rgba(212,175,110,.35),0 10px 24px rgba(0,0,0,.4);
+}
+[data-skin="classic"] .ti{color:#f0d9a8}
+[data-skin="classic"] .ar{color:rgba(240,217,168,.65)}
+/* Dial classic: ventana FM madera + cobre (radio de verdad) */
+[data-skin="classic"] .dial{
+  height:42px;margin-top:10px;border-radius:8px;overflow:hidden;
+  background:
+    linear-gradient(180deg,#4a3220 0%,#2a1c12 28%,#1a1008 72%,#120c08 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(212,175,110,.55),
+    inset 0 2px 10px rgba(0,0,0,.65),
+    inset 0 -1px 0 rgba(240,200,120,.15),
+    0 2px 0 rgba(80,50,20,.4);
+}
+[data-skin="classic"] .dial:before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 11px,rgba(212,175,110,.07) 11px 12px),
+    linear-gradient(180deg,rgba(255,220,150,.08),transparent 40%);
+}
+[data-skin="classic"] .sc{z-index:2}
+[data-skin="classic"] .sc text{
+  fill:#e8d0a0;font-size:10px;font-family:"Avenir Next Condensed","Futura",sans-serif;
+  font-weight:600;letter-spacing:.04em;
+}
+[data-skin="classic"] .sc line{stroke:rgba(212,175,110,.4)}
+[data-skin="classic"] .sc line.mj{stroke:rgba(240,200,120,.85);stroke-width:1.5}
+[data-skin="classic"] .nd{top:5px;height:32px;width:3px;z-index:3}
+[data-skin="classic"] .nd i{
+  width:3px;border-radius:1px;
+  background:linear-gradient(180deg,#ffd080,#ff9a3c 30%,#e07020 70%,#8a4010);
+  box-shadow:0 0 10px #ff7a18,0 1px 0 rgba(0,0,0,.4);
+}
+[data-skin="classic"] .hzr{color:rgba(240,217,168,.55)}
+[data-skin="classic"] .hzr span{
+  background:rgba(0,0,0,.4);color:#f0d9a8;border-radius:6px;
+  box-shadow:inset 0 0 0 .5px rgba(212,175,110,.45);
+}
+[data-skin="classic"] .cam{
+  background:radial-gradient(circle at 50% 35%,rgba(240,160,80,.28),rgba(40,24,12,.7) 70%);
+  box-shadow:0 0 20px var(--cam-glow);
+}
+[data-skin="classic"] .cam b{color:#f0d9a8}
+[data-skin="classic"] .cam svg{stroke:#f0d9a8}
+[data-skin="classic"] .pill{
+  background:rgba(212,175,110,.12);
+  box-shadow:inset 0 0 0 .5px rgba(212,175,110,.35);
+}
+[data-skin="classic"] .ft{
+  background:rgba(0,0,0,.35);box-shadow:inset 0 .5px 0 rgba(212,175,110,.2);
+}
+[data-skin="classic"] .vinyl-stage .arm,
+[data-skin="classic"] .studio-wave,
+[data-skin="classic"] .platter{display:none!important}
+body.over[data-skin="classic"] .mini-hz{color:#f0b060}
+
+/* ========== VINYL: mismo layout; solo dial plateado + aguja roja ========== */
+[data-skin="vinyl"]{
+  --bg0: #120a14;
+  --bg1: #08060a;
+  --stroke: rgba(255,140,80,.28);
+  --accent: #ff7a3a;
+  --accent2: #e040a0;
+  --accent3: #ffc05a;
+  --needle: #e10600;
+  --needle-glow: #ff2a20;
+  --fill: linear-gradient(90deg,#ff8a3a,#e040a0);
+  --cam-glow: rgba(255,100,40,.35);
+  --sw-on: #ff7a3a;
+  --radius: 18px;
+  --art-radius: 50%;
+  --dial-radius: 10px;
+  font-family:"Avenir Next","Futura",sans-serif;
+}
+[data-skin="vinyl"] .app{
+  background:#0a060c;
+  box-shadow:inset 0 0 0 .5px rgba(255,140,80,.22);
+}
+[data-skin="vinyl"] .studio-hero{
+  display:block;position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(10,6,12,.35) 0%,rgba(10,6,12,.2) 35%,rgba(10,6,12,.75) 62%,#0a060c 85%),
+    radial-gradient(ellipse 80% 50% at 50% 70%,rgba(255,90,30,.15),transparent 70%),
+    url("vinyl-table.jpg") center 40% / cover no-repeat;
+}
+[data-skin="vinyl"] .hd,
+[data-skin="vinyl"] .now-card,
+[data-skin="vinyl"] .dial,
+[data-skin="vinyl"] .hzr,
+[data-skin="vinyl"] .btns,
+[data-skin="vinyl"] .dv,
+[data-skin="vinyl"] .ft,
+[data-skin="vinyl"] .meta{position:relative;z-index:2}
+[data-skin="vinyl"] .hd h1{
+  font-size:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:#ffb080;text-shadow:0 0 14px rgba(255,100,40,.4);
+}
+[data-skin="vinyl"] .wstage{opacity:.35}
+/* disco CIRCULAR: artw debe ser cuadrado (si no, border-radius 50% = huevo) */
+[data-skin="vinyl"] .artw{
+  width:152px;height:152px;margin:8px auto 0;
+}
+[data-skin="vinyl"] .vinyl-stage{width:152px;height:152px;margin:0 auto}
+[data-skin="vinyl"] .art{
+  width:152px;height:152px;border-radius:50%;overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 50%,#333 0 10%,#1a1a1a 10.5% 11.5%,transparent 12%),
+    repeating-radial-gradient(circle at 50% 50%,#161616 0 1.4px,#0c0c0c 1.4px 2.8px);
+  box-shadow:
+    0 0 0 3px #111,
+    0 0 0 5px rgba(255,140,80,.2),
+    inset 0 0 36px rgba(0,0,0,.7),
+    0 12px 28px rgba(0,0,0,.55);
+}
+[data-skin="vinyl"] .art .ph{display:none}
+[data-skin="vinyl"] .art .label{
+  inset:27%;border-radius:50%;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08),inset 0 0 12px rgba(0,0,0,.35);
+}
+[data-skin="vinyl"] .art .ai{border-radius:50%;inset:0;width:100%;height:100%}
+[data-skin="vinyl"] .glow{display:none!important}
+[data-skin="vinyl"] .platter{display:none!important}
+[data-skin="vinyl"] .studio-wave{display:none!important}
+[data-skin="vinyl"] .arm{
+  display:block;position:absolute;right:8%;top:2%;z-index:4;width:5px;height:34%;
+  background:linear-gradient(180deg,#2a2a2a,#0a0a0a 55%,#000);
+  border-radius:3px;
+  transform:rotate(4deg);transform-origin:50% 8%;
+  box-shadow:1px 3px 8px rgba(0,0,0,.55);
+  transition:transform .55s cubic-bezier(.2,.8,.2,1);
+}
+[data-skin="vinyl"] .arm:before{
+  content:"";position:absolute;left:50%;top:0;width:14px;height:14px;margin:-4px 0 0 -7px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#555,#1a1a1a 55%,#000);
+  box-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+[data-skin="vinyl"] .arm:after{
+  content:"";position:absolute;left:50%;bottom:-2px;width:10px;height:12px;margin-left:-8px;
+  background:linear-gradient(135deg,#333,#000);border-radius:2px;transform:rotate(-28deg);
+}
+body.playing[data-skin="vinyl"] .arm{animation:armInward 42s linear forwards}
+@keyframes armInward{
+  0%{transform:rotate(8deg)}
+  100%{transform:rotate(22deg)}
+}
+body.playing[data-skin="vinyl"] .art{animation:vinylspin 8s linear infinite}
+@keyframes vinylspin{to{transform:rotate(360deg)}}
+[data-skin="vinyl"] .ti{color:#ffe0c8}
+[data-skin="vinyl"] .ar{color:rgba(255,200,160,.6)}
+/* ÚNICO cambio fuerte pedido: dial hi-fi plateado + selector rojo */
+[data-skin="vinyl"] .dial{
+  background:
+    linear-gradient(180deg,#f2f4f7 0%,#c5cad2 45%,#9aa1ab 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.85),
+    inset 0 -1px 0 rgba(0,0,0,.25),
+    inset 0 0 0 1px rgba(70,76,86,.45),
+    0 2px 6px rgba(0,0,0,.35);
+}
+[data-skin="vinyl"] .sc text{fill:#2a3038;font-weight:600}
+[data-skin="vinyl"] .sc line{stroke:rgba(40,48,56,.45)}
+[data-skin="vinyl"] .sc line.mj{stroke:rgba(30,36,44,.7)}
+[data-skin="vinyl"] .nd i{
+  width:3px;margin-left:-1px;
+  background:linear-gradient(180deg,#ff6b60,#e10600 28%,#e10600 72%,#8a0000);
+  box-shadow:0 0 10px #e10600,0 0 2px #fff;
+}
+[data-skin="vinyl"] .hzr{color:rgba(255,200,160,.55)}
+[data-skin="vinyl"] .hzr span{
+  background:rgba(0,0,0,.35);color:#ffe0c8;
+  box-shadow:inset 0 0 0 .5px rgba(255,140,80,.3);
+}
+[data-skin="vinyl"] .cam{
+  background:
+    radial-gradient(circle at 50% 50%,#2a1018 0 14%,transparent 15%),
+    repeating-radial-gradient(circle at 50% 50%,#1a1a1a 0 1.2px,#0c0c0c 1.2px 2.4px);
+  box-shadow:
+    0 0 0 2px #ff2f3f,
+    0 0 18px rgba(255,47,63,.4),
+    inset 0 0 16px rgba(0,0,0,.6);
+}
+[data-skin="vinyl"] .cam b{color:#fff}
+[data-skin="vinyl"] .cam svg{stroke:#ff8a92}
+[data-skin="vinyl"] .ft{
+  background:rgba(0,0,0,.4);box-shadow:inset 0 .5px 0 rgba(255,160,100,.12);
+}
+body.over[data-skin="vinyl"] .mini-hz{color:#ffb080}
+body.over[data-skin="vinyl"] .mb.camish{box-shadow:inset 0 0 0 .5px rgba(255,140,80,.5),0 0 10px rgba(255,100,40,.2)}
+
+/* ========== STUDIO ========== */
+[data-skin="studio"]{
+  --bg0: rgba(8,22,26,.9);
+  --bg1: rgba(2,10,12,.98);
+  --stroke: rgba(80,255,200,.35);
+  --accent: #3dffb5;
+  --accent2: #2ee6ff;
+  --accent3: #b8ff5a;
+  --needle: #5dffc0;
+  --needle-glow: #3dffb5;
+  --fill: linear-gradient(90deg,#2ee6ff,#3dffb5 55%,#b8ff5a);
+  --cam-glow: rgba(61,255,181,.25);
+  --sw-on: #3dffb5;
+  --radius: 18px;
+  --art-radius: 8px;
+  --dial-radius: 10px;
+}
+[data-skin="studio"] .app{
+  background:#030a0c;
+  box-shadow:inset 0 0 0 1px rgba(61,255,181,.3);
+}
+[data-skin="studio"] .studio-hero{
+  display:block;position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(3,10,12,.3) 0%,rgba(3,10,12,.4) 40%,rgba(3,10,12,.9) 78%,#030a0c 100%),
+    url("studio-hero.jpg") center 28% / cover no-repeat;
+}
+[data-skin="studio"] .hd,
+[data-skin="studio"] .now-card,
+[data-skin="studio"] .dial,
+[data-skin="studio"] .hzr,
+[data-skin="studio"] .btns,
+[data-skin="studio"] .dv,
+[data-skin="studio"] .ft{position:relative;z-index:2}
+[data-skin="studio"] .hd h1{
+  color:#3dffb5;font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  text-shadow:0 0 10px rgba(61,255,181,.5);
+}
+[data-skin="studio"] .art{
+  box-shadow:0 0 0 1px rgba(61,255,181,.4),0 0 14px rgba(61,255,181,.12);
+}
+[data-skin="studio"] .glow{display:none!important}
+[data-skin="studio"] .arm,
+[data-skin="studio"] .platter,
+[data-skin="studio"] .studio-wave{display:none!important}
+/* Dial studio: LCD rack flat (mesa de estudio, no FM redondo) */
+[data-skin="studio"] .dial{
+  height:30px;margin-top:10px;border-radius:3px;overflow:hidden;
+  background:
+    linear-gradient(180deg,#0a1412 0%,#030808 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(80,255,200,.4),
+    inset 0 1px 0 rgba(61,255,181,.12),
+    0 0 0 1px rgba(0,0,0,.6);
+}
+[data-skin="studio"] .dial:before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 2px,rgba(61,255,181,.035) 2px 3px),
+    linear-gradient(90deg,rgba(46,230,255,.06),transparent 30%,transparent 70%,rgba(61,255,181,.06));
+}
+[data-skin="studio"] .sc{z-index:2}
+[data-skin="studio"] .sc text{
+  fill:rgba(100,220,180,.7);font-size:8px;font-family:ui-monospace,"SF Mono",Menlo,monospace;
+  letter-spacing:.08em;
+}
+[data-skin="studio"] .sc line{stroke:rgba(61,255,181,.28)}
+[data-skin="studio"] .sc line.mj{stroke:rgba(61,255,181,.7);stroke-width:1.2}
+[data-skin="studio"] .nd{top:3px;height:24px;width:2px;z-index:3}
+[data-skin="studio"] .nd i{
+  width:2px;border-radius:0;
+  background:linear-gradient(180deg,#2ee6ff,#3dffb5 50%,#b8ff5a);
+  box-shadow:0 0 10px #3dffb5,0 0 2px #fff;
+}
+[data-skin="studio"] .hzr{margin-top:4px;color:rgba(100,220,180,.45);font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em}
+[data-skin="studio"] .hzr span{
+  background:#041410;color:#3dffb5;border-radius:2px;font-family:inherit;
+  box-shadow:inset 0 0 0 1px rgba(61,255,181,.4);
+}
+[data-skin="studio"] .cam{
+  background:#061410;
+  box-shadow:0 0 0 1.5px #3dffb5,0 0 16px rgba(61,255,181,.25);
+}
+[data-skin="studio"] .cam b{color:#3dffb5}
+[data-skin="studio"] .cam svg{stroke:#3dffb5}
+[data-skin="studio"] .pill{
+  box-shadow:inset 0 0 0 1px rgba(80,255,200,.3);
+}
+body.over[data-skin="studio"] .mini-hz{color:#3dffb5}
+
+/* ========== ON AIR: mismo layout; hero + acento rojo ========== */
+[data-skin="onair"]{
+  --bg0: #050304;
+  --bg1: #050304;
+  --stroke: rgba(255,255,255,.1);
+  --accent: #ff2f3f;
+  --accent2: #ff5a45;
+  --accent3: #ff8a5c;
+  --needle: #ff2f3f;
+  --needle-glow: #ff2f3f;
+  --fill: linear-gradient(90deg,#ff6a45,#ff2f3f);
+  --cam-glow: rgba(255,40,55,.45);
+  --sw-on: #ff2f3f;
+  --radius: 18px;
+  --art-radius: 14px;
+  --dial-radius: 12px;
+  font-family:"Avenir Next","Futura","Gill Sans",sans-serif;
+}
+[data-skin="onair"] .app{
+  background:#050304;
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.08);
+}
+[data-skin="onair"] .studio-hero{
+  display:block;position:absolute;inset:0;z-index:0;pointer-events:none;
+  /* solo el fondo baja; la UI queda igual que el resto de skins */
+  background:
+    linear-gradient(180deg,rgba(5,3,4,.05) 0%,rgba(5,3,4,.12) 36%,rgba(5,3,4,.65) 68%,#050304 88%),
+    url("onair-hero.jpg") center 40% / cover no-repeat;
+}
+[data-skin="onair"] .bounce{position:absolute;inset:0;pointer-events:none}
+[data-skin="onair"] .bounce-velvet{
+  background:
+    radial-gradient(ellipse 90% 70% at 80% 8%,rgba(255,30,50,.22),transparent 55%),
+    radial-gradient(ellipse 70% 50% at 12% 28%,rgba(200,15,40,.16),transparent 50%);
+  animation:velvetBounce 3.8s ease-in-out infinite;
+}
+[data-skin="onair"] .bounce-metal{
+  background:linear-gradient(122deg,transparent 30%,rgba(255,160,170,.14) 46%,transparent 62%);
+  animation:metalSheen 5s ease-in-out infinite;
+}
+[data-skin="onair"] .bounce-spec{
+  background:linear-gradient(100deg,transparent 42%,rgba(255,200,210,.1) 50%,transparent 58%);
+  animation:specSweep 6.5s ease-in-out infinite;
+}
+@keyframes velvetBounce{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes metalSheen{0%,100%{opacity:.4;transform:translateX(-2%)}50%{opacity:.85;transform:translateX(3%)}}
+@keyframes specSweep{0%,100%{opacity:.25;transform:translateX(-6%)}50%{opacity:.65;transform:translateX(8%)}}
+[data-skin="onair"] .hd,
+[data-skin="onair"] .now-card,
+[data-skin="onair"] .dial,
+[data-skin="onair"] .hzr,
+[data-skin="onair"] .btns,
+[data-skin="onair"] .dv,
+[data-skin="onair"] .ft{position:relative;z-index:2}
+[data-skin="onair"] .hd h1{
+  font-size:18px;font-weight:700;letter-spacing:-.02em;text-transform:none;color:#fff;
+  text-shadow:0 1px 8px rgba(0,0,0,.55);
+}
+[data-skin="onair"] .hdr-pl{
+  display:none; /* unidad: sin playlist en header; ya está en el chip */
+}
+[data-skin="onair"] .art{
+  box-shadow:0 8px 20px rgba(0,0,0,.5),0 0 16px rgba(255,47,63,.15);
+}
+[data-skin="onair"] .ti{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+[data-skin="onair"] .ar{color:rgba(255,210,210,.7)}
+[data-skin="onair"] .dial{
+  background:rgba(0,0,0,.35);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.12);
+}
+[data-skin="onair"] .sc text{fill:rgba(255,220,220,.65)}
+[data-skin="onair"] .nd i{
+  background:linear-gradient(180deg,transparent,#ff2f3f 25%,#ff2f3f 75%,transparent);
+  box-shadow:0 0 8px #ff2f3f;
+}
+[data-skin="onair"] .hzr span{
+  background:rgba(0,0,0,.4);color:#ffb0b6;
+  box-shadow:inset 0 0 0 .5px rgba(255,80,90,.4);
+}
+[data-skin="onair"] .cam{
+  background:radial-gradient(circle at 50% 30%,rgba(255,70,80,.35),rgba(40,8,12,.75) 70%);
+  box-shadow:0 0 0 2px rgba(255,47,63,.7),0 0 22px rgba(255,40,55,.4);
+}
+[data-skin="onair"] .cam b{color:#fff}
+[data-skin="onair"] .cam svg{stroke:#fff}
+[data-skin="onair"] .pill{
+  background:rgba(255,255,255,.07);
+  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14);
+}
+[data-skin="onair"] .ft{
+  background:rgba(0,0,0,.4);box-shadow:inset 0 .5px 0 rgba(255,255,255,.08);
+}
+[data-skin="onair"] .vinyl-stage .arm,
+[data-skin="onair"] .studio-wave,
+[data-skin="onair"] .platter{display:none!important}
+body.over[data-skin="onair"] .mini-hz{color:#ff6b75}
+body.over[data-skin="onair"] .mb.camish{box-shadow:inset 0 0 0 .5px rgba(255,70,80,.55),0 0 10px rgba(255,50,70,.25)}
+
+body.over[data-skin="neon"] .mini-hz{color:#3ee6ff}
+body.over[data-skin="neon"] .mb.camish{box-shadow:inset 0 0 0 .5px rgba(62,230,255,.5),0 0 10px rgba(62,230,255,.25)}
