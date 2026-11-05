@@ -984,11 +984,30 @@ static double ASFloat(NSString *s) {
     NSString *out = [[NSString alloc] initWithData:od encoding:NSUTF8StringEncoding] ?: @"";
     return [out stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 }
+// Solo para cold-start / automatización. NO usar spotify:playlist: en Cambiar (abre ventana).
 - (BOOL)openSpotifyURI:(NSString *)uri {
     if (!uri.length) return NO;
     NSURL *u = [NSURL URLWithString:uri];
     if (!u) return NO;
     return [[NSWorkspace sharedWorkspace] openURLs:@[u] withAppBundleIdentifier:@"com.spotify.client" options:NSWorkspaceLaunchWithoutActivation additionalEventParamDescriptor:nil launchIdentifiers:nil];
+}
+- (BOOL)ensureSpotifyRunningQuiet {
+    if ([[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"] count]) return YES;
+    NSURL *appURL = [[NSWorkspace sharedWorkspace] URLForApplicationWithBundleIdentifier:@"com.spotify.client"];
+    if (!appURL) return NO;
+    if (@available(macOS 10.15, *)) {
+        NSWorkspaceOpenConfiguration *cfg = [NSWorkspaceOpenConfiguration configuration];
+        cfg.activates = NO;
+        __block BOOL ok = NO;
+        dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+        [[NSWorkspace sharedWorkspace] openApplicationAtURL:appURL configuration:cfg completionHandler:^(__unused NSRunningApplication *app, NSError *err) {
+            ok = (err == nil);
+            dispatch_semaphore_signal(sem);
+        }];
+        dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)));
+        return ok || [[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"] count] > 0;
+    }
+    return [[NSWorkspace sharedWorkspace] launchAppWithBundleIdentifier:@"com.spotify.client" options:NSWorkspaceLaunchWithoutActivation additionalEventParamDescriptor:nil launchIdentifier:nil];
 }
 - (BOOL)playLocalTrack:(NSString *)uri positionMs:(double)posMs {
     return [self playLocalTrack:uri positionMs:posMs contextSrc:nil];
@@ -1031,9 +1050,12 @@ static double ASFloat(NSString *s) {
     if (s != 200 || ![j isKindOfClass:[NSDictionary class]]) return nil;
     NSDictionary *item = J(j, @"item");
     if (![item isKindOfClass:[NSDictionary class]]) return nil;
+    // Local files → Spotify.app muestra “can't play this / import it”
+    if ([JOk(item, @"is_local") boolValue]) return nil;
+    NSString *uri = JS(item, @"uri");
+    if ([uri hasPrefix:@"spotify:local:"]) return nil;
     NSString *tid = JS(item, @"id");
     if (!tid.length) return nil;
-    NSString *uri = JS(item, @"uri");
     if (![uri hasPrefix:@"spotify:track:"]) uri = [@"spotify:track:" stringByAppendingString:tid];
     NSMutableArray *arts = [NSMutableArray array];
     for (id a in J(item, @"artists")) if ([a isKindOfClass:[NSDictionary class]] && JS(a, @"name").length) [arts addObject:JS(a, @"name")];
@@ -1047,36 +1069,48 @@ static double ASFloat(NSString *s) {
              @"akey": [self primaryArtist:artist] ?: @"", @"art": art ?: @"",
              @"dur": @(dur), @"pos": @(posMs / 1000.0)};
 }
+// Reproduce un track streamable conocido (nunca offset por posición: cae en locales).
+- (NSDictionary *)playApiPicked:(NSDictionary *)t src:(NSString *)src fromStart:(BOOL)fromStart {
+    NSString *uri = t[@"uri"];
+    if (![uri hasPrefix:@"spotify:track:"]) return nil;
+    double durMs = [t[@"dur"] doubleValue];
+    double posMs = fromStart ? 0 : ([self radioMidSecForDurationMs:durMs] * 1000.0);
+    if (posMs < 1 && !fromStart) posMs = 30000;
+    if (![self playApiTrack:uri positionMs:posMs contextSrc:src]) return nil;
+    [NSThread sleepForTimeInterval:0.25];
+    NSDictionary *live = [self apiNowPlaying];
+    if ([live[@"uri"] hasPrefix:@"spotify:track:"]) {
+        self.localCtxSrc = [src copy];
+        return @{@"uri": live[@"uri"] ?: uri, @"name": live[@"name"] ?: (t[@"name"] ?: @""),
+                 @"artist": live[@"artist"] ?: (t[@"artist"] ?: @""),
+                 @"akey": live[@"akey"] ?: (t[@"akey"] ?: @""), @"art": live[@"art"] ?: (t[@"art"] ?: @""),
+                 @"dur": live[@"dur"] ?: (t[@"dur"] ?: @0), @"pos": live[@"pos"] ?: @(posMs / 1000.0)};
+    }
+    // API OK pero Spotify aún no refleja: devolver el pick (streamable) para no caer a AS next
+    self.localCtxSrc = [src copy];
+    return @{@"uri": uri, @"name": t[@"name"] ?: @"", @"artist": t[@"artist"] ?: @"",
+             @"akey": t[@"akey"] ?: @"", @"art": t[@"art"] ?: @"",
+             @"dur": t[@"dur"] ?: @0, @"pos": @(posMs / 1000.0)};
+}
 - (NSDictionary *)playApiContext:(NSString *)src fromStart:(BOOL)fromStart {
     if ([self backoffLeft] > 0) return nil;
     if (!src.length) return nil;
-    NSString *contextUri = nil;
-    if ([src isEqualToString:@"liked"]) {
-        if (!self.meId.length) return nil;
-        contextUri = [NSString stringWithFormat:@"spotify:user:%@:collection", self.meId];
-    } else {
-        if ([src rangeOfCharacterFromSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]].location != NSNotFound) return nil;
-        contextUri = [NSString stringWithFormat:@"spotify:playlist:%@", src];
+    // Solo URI de track del pool (is_local ya filtrado). NUNCA position aleatoria:
+    // en playlists con archivos locales Spotify.app abre el diálogo “can't play this”.
+    NSInteger st = 0; id ej = nil;
+    NSDictionary *picked = [self pickTrack:src status:&st json:&ej];
+    // #region agent log
+    {
+        NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
+        NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H1\",\"location\":\"playApiContext\",\"message\":\"play by picked uri not position\",\"data\":{\"src\":\"%@\",\"hasPick\":%@,\"uri\":\"%@\"},\"timestamp\":%lld}\n",
+                          src ?: @"", picked[@"uri"] ? @"true" : @"false", picked[@"uri"] ?: @"", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
+        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
+        if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
     }
-    NSInteger offset = (NSInteger)arc4random_uniform(50);
-    NSMutableDictionary *body = [@{@"context_uri": contextUri, @"offset": @{@"position": @(offset)}} mutableCopy];
-    if (!fromStart) body[@"position_ms"] = @(20000 + (NSInteger)arc4random_uniform(90000));
-    id j = nil;
-    NSInteger s = [self api:@"PUT" path:@"/me/player/play" body:body out:&j];
-    if (s != 204 && s != 200 && s != 202) return nil;
-    [NSThread sleepForTimeInterval:0.25];
-    NSDictionary *live = [self apiNowPlaying];
-    if (![live[@"uri"] hasPrefix:@"spotify:track:"]) return nil;
-    double dur = [live[@"dur"] doubleValue];
-    double pos = [live[@"pos"] doubleValue];
-    if (!fromStart && dur > 20000) {
-        double want = (dur / 1000.0) * (0.15 + 0.60 * ((double)arc4random_uniform(10000) / 10000.0));
-        if ([self seekApiMs:(long long)(want * 1000.0)]) pos = want;
-    }
-    self.localCtxSrc = [src copy];
-    return @{@"uri": live[@"uri"] ?: @"", @"name": live[@"name"] ?: @"", @"artist": live[@"artist"] ?: @"",
-             @"akey": live[@"akey"] ?: @"", @"art": live[@"art"] ?: @"",
-             @"dur": live[@"dur"] ?: @0, @"pos": @(pos)};
+    // #endregion
+    if (!picked[@"uri"]) return nil;
+    return [self playApiPicked:picked src:src fromStart:fromStart];
 }
 // Spotify.app + contexto de playlist (b74). Sin `launch` AS (abre ventana).
 - (BOOL)playLocalTrack:(NSString *)uri positionMs:(double)posMs contextSrc:(NSString *)ctxSrc {
@@ -1086,10 +1120,9 @@ static double ASFloat(NSString *s) {
     if ([ctxSrc isEqualToString:@"liked"]) ctx = @"spotify:collection:tracks";
     else if (ctxSrc.length >= 10 && [ctxSrc rangeOfCharacterFromSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]].location == NSNotFound)
         ctx = [NSString stringWithFormat:@"spotify:playlist:%@", ctxSrc];
-    // Despertar Spotify sin traer al frente
     if (![[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"] count]) {
-        [self openSpotifyURI:uri];
-        [NSThread sleepForTimeInterval:0.7];
+        [self ensureSpotifyRunningQuiet];
+        [NSThread sleepForTimeInterval:0.5];
     }
     NSMutableString *src = [NSMutableString stringWithString:
         @"tell application \"Spotify\"\n"
@@ -1099,12 +1132,10 @@ static double ASFloat(NSString *s) {
     [src appendFormat:@"delay %.2f\ntry\nplay\nend try\nset player position to %f\n", sec < 0.5 ? 0.45 : 0.25, sec];
     if (sec < 0.5) [src appendString:@"delay 0.12\nset player position to 0\n"];
     [src appendString:@"return \"ok\"\nend tell"];
-    BOOL ok = [[self runAppleScript:src timeoutSec:10.0] isEqualToString:@"ok"];
+    BOOL ok = [[self runAppleScript:src timeoutSec:5.0] isEqualToString:@"ok"];
     if (ok && ctxSrc.length) self.localCtxSrc = [ctxSrc copy];
-    if (!ok) {
-        [self radioLog:@"playLocalTrack AS fail → API uri=%@", uri];
-        ok = [self playApiTrack:uri positionMs:posMs contextSrc:ctxSrc];
-    }
+    // Sin fallback Web API: PUT /me/player/play activa Spotify.app (abre ventana).
+    if (!ok) [self radioLog:@"playLocalTrack AS fail (no API) uri=%@", uri];
     return ok;
 }
 - (BOOL)seekLocalSec:(double)sec {
@@ -1210,48 +1241,91 @@ static double ASFloat(NSString *s) {
         if ([src rangeOfCharacterFromSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]].location != NSNotFound) return nil;
         if (src.length < 10) return nil;
     }
-    NSString *ctx = [src isEqualToString:@"liked"] ? @"spotify:collection:tracks" : [NSString stringWithFormat:@"spotify:playlist:%@", src];
     [self radioLog:@"playLocalContext src=%@ needOpen=%d fromStart=%d", src, needOpen ? 1 : 0, fromStart ? 1 : 0];
-    // Al cambiar playlist: API primero (no abre ventana). Si falla → AS sin `launch`.
+    // Solo AppleScript. NUNCA Web API aquí: PUT /me/player/play abre Spotify.app.
+    // NUNCA `play track "spotify:playlist:…"`: diálogo “can't play this”.
     NSDictionary *out = nil;
     if (needOpen) {
-        out = [self playApiContext:src fromStart:fromStart];
-        if (out[@"uri"]) return out;
-        // Despertar sin foco; evita `launch` de AppleScript (trae Spotify al frente)
-        [self openSpotifyURI:ctx];
-        [NSThread sleepForTimeInterval:0.8];
+        NSString *seed = [self seedTrackURIForSrc:src sameContext:NO];
+        if (!seed.length) {
+            NSInteger st = 0; id ej = nil;
+            NSDictionary *picked = [self pickTrack:src status:&st json:&ej];
+            seed = picked[@"uri"];
+        }
+        // #region agent log
+        {
+            NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
+            NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H3\",\"runId\":\"b20\",\"location\":\"playLocalContext:needOpen\",\"message\":\"AS seed only no API\",\"data\":{\"src\":\"%@\",\"hasSeed\":%@},\"timestamp\":%lld}\n",
+                              src ?: @"", seed.length ? @"true" : @"false", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
+            NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
+            if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
+        }
+        // #endregion
+        if (seed.length && [seed hasPrefix:@"spotify:track:"]) {
+            double posMs = fromStart ? 0 : 30000;
+            if ([self playLocalTrack:seed positionMs:posMs contextSrc:src]) {
+                NSDictionary *again = [self localSpotifyState];
+                NSString *aid = again[@"id"] ?: @"";
+                if ([aid hasPrefix:@"spotify:track:"]) {
+                    self.localCtxSrc = [src copy];
+                    [self radioLog:@"playLocalContext path=seed-open"];
+                    return @{@"uri": aid, @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
+                             @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
+                             @"dur": again[@"dur"] ?: @0, @"pos": again[@"pos"] ?: @(posMs / 1000.0)};
+                }
+            }
+        }
+        [self radioLog:@"playLocalContext FAIL open src=%@ (no AS seed)", src];
+        self.lastAppleScriptErr = @"No pude abrir esa playlist en segundo plano. Deja Spotify sonando en ese listado o prueba otra.";
+        return nil;
     }
+    // Mismo contexto: next×N por AS + saltar archivos locales (sin API).
     NSMutableString *as = [NSMutableString stringWithString:
         @"tell application \"Spotify\"\n"
          "if not running then return \"\"\n"
          "try\nset shuffling to true\nend try\n"];
-    if (needOpen) {
-        [as appendFormat:
-            @"play track \"%@\"\n"
-             "delay 0.55\n"
-             "try\n"
-             "set seed to spotify url of current track as string\n"
-             "play track seed in context \"%@\"\n"
-             "delay 0.25\n"
-             "try\nplay\nend try\n"
-             "end try\n", ASEscape(ctx), ASEscape(ctx)];
-    }
     for (int i = 0; i < skips; i++) [as appendString:@"next track\ndelay 0.12\n"];
+    // Si cae en local / no-track, next hasta 4 veces más (evita toast “import it”).
+    [as appendString:
+        @"repeat 4 times\n"
+         "try\n"
+         "set u to spotify url of current track as string\n"
+         "if u starts with \"spotify:track:\" then exit repeat\n"
+         "on error\n"
+         "end try\n"
+         "next track\n"
+         "delay 0.12\n"
+         "end repeat\n"];
     [as appendString:[self appleScriptAfterPlay:fromStart]];
     [as appendString:@"end tell"];
-    out = [self localTuneResultFromScript:[self runAppleScript:as timeoutSec:12.0]];
+    // #region agent log
+    {
+        NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
+        NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H4\",\"runId\":\"b20\",\"location\":\"playLocalContext:same\",\"message\":\"AS next with local-skip no API\",\"data\":{\"src\":\"%@\",\"skips\":%d},\"timestamp\":%lld}\n",
+                          src ?: @"", skips, (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
+        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
+        if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
+    }
+    // #endregion
+    out = [self localTuneResultFromScript:[self runAppleScript:as timeoutSec:5.0]];
     if (!out[@"uri"]) {
         NSDictionary *again = [self localSpotifyState];
-        if ([again[@"id"] hasPrefix:@"spotify:track:"]) {
-            out = @{@"uri": again[@"id"] ?: @"", @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
+        NSString *aid = again[@"id"] ?: @"";
+        if ([aid hasPrefix:@"spotify:track:"]) {
+            out = @{@"uri": aid, @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
                     @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
                     @"dur": again[@"dur"] ?: @0, @"pos": again[@"pos"] ?: @0};
         }
     }
-    if (!out[@"uri"] && !needOpen) out = [self playApiContext:src fromStart:fromStart];
-    if (out[@"uri"]) self.localCtxSrc = [src copy];
-    else [self radioLog:@"playLocalContext FAIL src=%@ err=%@", src, self.lastAppleScriptErr ?: @"?"];
-    return out[@"uri"] ? out : nil;
+    if ([out[@"uri"] hasPrefix:@"spotify:track:"]) {
+        self.localCtxSrc = [src copy];
+        [self radioLog:@"playLocalContext path=as-same"];
+        return out;
+    }
+    [self radioLog:@"playLocalContext FAIL same src=%@", src];
+    return nil;
 }
 - (NSDictionary *)localSpotifyState {
     if (!self.useLocalSpotify) return nil;
@@ -1327,13 +1401,26 @@ static double ASFloat(NSString *s) {
         if (uri.length && prev.length && ![uri isEqualToString:prev]) {
             if (sinceTune >= 1.5) {
                 BOOL wasAwaiting = self.awaitingEnd;
-                self.awaitingEnd = NO;
+                // Solo corregir posición en el salto natural cerca del final (pos nueva ≈ 0 o a mitad rara).
+                // No tocar si el usuario cambió de tema a mano a mitad de canción.
+                self.awaitingEnd = YES;
                 self.onAirUri = uri;
                 self.onAirArtist = [self primaryArtist:artist];
                 force = YES;
-                // Modo radio OFF: si Spotify ya saltó solo, forzar inicio en 0
                 BOOL radioOn = self.store[@"radio"] == nil ? YES : [self.store[@"radio"] boolValue];
-                if (wasAwaiting && !radioOn && posSec > 1.5) [self seekLocalSec:0];
+                if (wasAwaiting) {
+                    if (radioOn && posSec < 2.0) {
+                        double want = [self radioMidSecForDurationMs:durMs];
+                        if (want >= 2.0) {
+                            [self seekLocalSec:want];
+                            posSec = want;
+                        }
+                    } else if (!radioOn && posSec > 2.0 && posSec < 12.0) {
+                        // Entró a mitad (radio Spotify); clavar inicio. Evitar seek si ya va avanzada de verdad.
+                        [self seekLocalSec:0];
+                        posSec = 0;
+                    }
+                }
             }
         } else if (uri.length && !prev.length) {
             self.onAirUri = uri;
@@ -1378,12 +1465,20 @@ static double ASFloat(NSString *s) {
         if ([uri isEqualToString:self.onAirUri] && durMs > 0 && posMs >= durMs - 1500) { [self advanceRadio]; return; }
         if (uri.length && ![uri isEqualToString:self.onAirUri]) {
             BOOL radioOn = self.store[@"radio"] == nil ? YES : [self.store[@"radio"] boolValue];
-            self.awaitingEnd = NO;
+            self.awaitingEnd = YES;
             self.onAirUri = uri;
             self.onAirArtist = [self primaryArtist:artist];
-            if (!radioOn && posMs > 1500) {
+            if (radioOn && posMs < 2000) {
+                double want = [self radioMidSecForDurationMs:durMs];
+                if (want >= 2.0) {
+                    id sj = nil;
+                    [self api:@"PUT" path:[NSString stringWithFormat:@"/me/player/seek?position_ms=%lld", (long long)(want * 1000.0)] body:nil out:&sj];
+                    posMs = want * 1000.0;
+                }
+            } else if (!radioOn && posMs > 2000 && posMs < 12000) {
                 id sj = nil;
                 [self api:@"PUT" path:@"/me/player/seek?position_ms=0" body:nil out:&sj];
+                posMs = 0;
             }
         }
     }
@@ -1687,6 +1782,9 @@ static double ASFloat(NSString *s) {
     id tr = JOk(it, @"track") ?: JOk(it, @"item") ?: ([JS(it, @"uri") hasPrefix:@"spotify:track:"] ? it : nil);
     NSString *uri = JS(tr, @"uri");
     if (![uri hasPrefix:@"spotify:track:"] || [JOk(tr, @"is_local") boolValue]) return nil;
+    // Si la API marca no reproducible en el mercado, no meterlo al pool (evita el toast de Spotify).
+    id playable = JOk(tr, @"is_playable");
+    if ([playable isKindOfClass:[NSNumber class]] && ![playable boolValue]) return nil;
     NSString *artist = @"";
     id ars = JOk(tr, @"artists");
     if ([ars isKindOfClass:[NSArray class]]) {
@@ -1818,20 +1916,35 @@ static double ASFloat(NSString *s) {
     self.primedNext = p;
     [self send:@{@"t": @"primed", @"uri": p[@"uri"] ?: @"", @"name": p[@"name"] ?: @"", @"artist": p[@"artist"] ?: @"", @"art": art ?: @""}];
 }
-- (void)finishLocalTune:(NSDictionary *)t posSec:(double)posSec flip:(BOOL)flip {
+- (double)radioMidSecForDurationMs:(double)durMs {
+    if (durMs <= 20000) return 0;
+    return (durMs / 1000.0) * (0.15 + 0.60 * ((double)arc4random_uniform(10000) / 10000.0));
+}
+- (void)finishLocalTune:(NSDictionary *)t posSec:(double)posSec flip:(BOOL)flip fromStart:(BOOL)fromStart {
     [self clearQuotaBanner];
-    // Preferir lo que suena ahora en Spotify.app; si el poll AS falla, usar lo pedido.
+    NSString *wantUri = t[@"uri"] ?: @"";
     NSDictionary *live = [self localSpotifyState];
-    NSString *uri = ([live[@"id"] hasPrefix:@"spotify:track:"] ? live[@"id"] : nil) ?: (t[@"uri"] ?: @"");
-    NSString *name = (live[@"name"] ?: t[@"name"]) ?: @"";
-    NSString *artist = (live[@"artist"] ?: t[@"artist"]) ?: @"";
-    NSString *art = (live[@"art"] ?: t[@"art"]) ?: @"";
-    double dur = live[@"dur"] ? [live[@"dur"] doubleValue] : [t[@"dur"] doubleValue];
-    double pos = live[@"pos"] ? [live[@"pos"] doubleValue] : posSec;
-    // Pedido desde el inicio: no dejar que Spotify reporte mitad y mienta a la UI
-    if (posSec < 1.0) {
-        if (pos > 2.0) [self seekLocalSec:0];
+    NSString *liveId = [live[@"id"] hasPrefix:@"spotify:track:"] ? live[@"id"] : @"";
+    // Solo corregir posición si Spotify ya muestra LA canción pedida.
+    // Si aún reporta la anterior, un seek a 0/mitad la REINICIA (bug b6).
+    BOOL liveMatches = wantUri.length && liveId.length && [liveId isEqualToString:wantUri];
+    NSString *uri = liveMatches ? liveId : (wantUri.length ? wantUri : liveId);
+    NSString *name = (liveMatches ? (live[@"name"] ?: t[@"name"]) : (t[@"name"] ?: live[@"name"])) ?: @"";
+    NSString *artist = (liveMatches ? (live[@"artist"] ?: t[@"artist"]) : (t[@"artist"] ?: live[@"artist"])) ?: @"";
+    NSString *art = (liveMatches ? (live[@"art"] ?: t[@"art"]) : (t[@"art"] ?: live[@"art"])) ?: @"";
+    double dur = liveMatches && live[@"dur"] ? [live[@"dur"] doubleValue] : ([t[@"dur"] doubleValue] ?: [live[@"dur"] doubleValue]);
+    double pos = liveMatches && live[@"pos"] ? [live[@"pos"] doubleValue] : posSec;
+    if (fromStart) {
+        if (liveMatches && pos > 1.0) [self seekLocalSec:0];
         pos = 0;
+    } else if (liveMatches && pos < 2.0) {
+        double want = posSec >= 2.0 ? posSec : [self radioMidSecForDurationMs:dur];
+        if (want >= 2.0) {
+            [self seekLocalSec:want];
+            pos = want;
+        }
+    } else if (!fromStart && posSec >= 2.0) {
+        pos = posSec;
     }
     NSString *akey = [self primaryArtist:artist] ?: (t[@"akey"] ?: @"");
     [self rememberPlayedUri:uri];
@@ -1868,7 +1981,8 @@ static double ASFloat(NSString *s) {
     dispatch_async(self.q, ^{ [self primeNextTrack]; });
 }
 - (void)cambiarRadio:(BOOL)radio device:(NSString *)forced fromStart:(BOOL)fromStart flip:(BOOL)flip {
-    [self send:@{@"t": @"tuning", @"arts": [self.arts copy] ?: @[], @"flip": @(flip)}];
+    // No mandar arts históricos al flip (UI ya no los usa para shuffle)
+    [self send:@{@"t": @"tuning", @"arts": @[], @"flip": @(flip)}];
     NSString *src = self.store[@"cur"] ?: @"liked";
     if (![src isKindOfClass:[NSString class]] || !src.length) src = @"liked";
     // Camino A (Spotify.app): SIEMPRE con contexto de playlist (no play de canción suelta → radio).
@@ -1878,11 +1992,11 @@ static double ASFloat(NSString *s) {
         NSDictionary *primed = self.primedNext;
         if (sameCtx && primed[@"uri"] && [primed[@"src"] isEqualToString:src]) {
             double dur = [primed[@"dur"] doubleValue], posMs = 0;
-            if (!fromStart && dur > 20000) posMs = dur * (0.15 + 0.60 * ((double)arc4random_uniform(10000) / 10000.0));
+            if (!fromStart) posMs = [self radioMidSecForDurationMs:dur] * 1000.0;
             if ([self playLocalTrack:primed[@"uri"] positionMs:posMs contextSrc:src]) {
                 self.primedNext = nil;
                 if (fromStart) [self seekLocalSec:0];
-                [self finishLocalTune:[primed mutableCopy] posSec:fromStart ? 0 : posMs / 1000.0 flip:flip];
+                [self finishLocalTune:[primed mutableCopy] posSec:fromStart ? 0 : posMs / 1000.0 flip:flip fromStart:fromStart];
                 return;
             }
             self.primedNext = nil;
@@ -1891,7 +2005,7 @@ static double ASFloat(NSString *s) {
         if (ctx[@"uri"]) {
             self.primedNext = nil;
             if (fromStart) [self seekLocalSec:0];
-            [self finishLocalTune:ctx posSec:fromStart ? 0 : [ctx[@"pos"] doubleValue] flip:flip];
+            [self finishLocalTune:ctx posSec:fromStart ? 0 : [ctx[@"pos"] doubleValue] flip:flip fromStart:fromStart];
             return;
         }
         if (poolWarm) {
@@ -1899,10 +2013,10 @@ static double ASFloat(NSString *s) {
             NSDictionary *picked = [self pickTrack:src status:&ls json:&lj];
             if (picked[@"uri"]) {
                 double dur = [picked[@"dur"] doubleValue], posMs = 0;
-                if (!fromStart && dur > 20000) posMs = dur * (0.15 + 0.60 * ((double)arc4random_uniform(10000) / 10000.0));
+                if (!fromStart && dur > 20000) posMs = [self radioMidSecForDurationMs:dur] * 1000.0;
                 if ([self playLocalTrack:picked[@"uri"] positionMs:posMs contextSrc:src]) {
                     if (fromStart) [self seekLocalSec:0];
-                    [self finishLocalTune:[picked mutableCopy] posSec:fromStart ? 0 : posMs / 1000.0 flip:flip];
+                    [self finishLocalTune:[picked mutableCopy] posSec:fromStart ? 0 : posMs / 1000.0 flip:flip fromStart:fromStart];
                     return;
                 }
             }
@@ -1917,18 +2031,19 @@ static double ASFloat(NSString *s) {
                     NSMutableDictionary *lt = [@{@"uri": again[@"id"], @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
                                                  @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
                                                  @"dur": again[@"dur"] ?: @0} mutableCopy];
-                    [self finishLocalTune:lt posSec:fromStart ? 0 : [again[@"pos"] doubleValue] flip:flip];
+                    double wantSec = fromStart ? 0 : MAX([again[@"pos"] doubleValue], posMs / 1000.0);
+                    [self finishLocalTune:lt posSec:wantSec flip:flip fromStart:fromStart];
                     return;
                 }
             }
         }
         if (self.appleEventsDenied) {
-            NSString *openUri = [src isEqualToString:@"liked"] ? @"spotify:collection:tracks" : [NSString stringWithFormat:@"spotify:playlist:%@", src];
-            [self openSpotifyURI:openUri];
+            // No abrir playlist URI: deja Spotify abierto con diálogo de error
+            [self ensureSpotifyRunningQuiet];
             [self promptSpotifyAutomation];
             return;
         }
-        [self send:@{@"t": @"err", @"msg": self.lastAppleScriptErr.length ? self.lastAppleScriptErr : @"No pude sintonizar en Spotify.app. ¿Está abierto y con Automatización permitida?"}];
+        [self send:@{@"t": @"err", @"msg": self.lastAppleScriptErr.length ? self.lastAppleScriptErr : @"No pude sintonizar esa fuente. Prueba otra playlist o revisa Automatización (Radiofy → Spotify)."}];
         return;
     }
     BOOL poolWarm = [src isEqualToString:self.poolSrc] && self.trackPool.count >= 1;
@@ -1948,7 +2063,7 @@ static double ASFloat(NSString *s) {
     // Preferir Spotify.app CON contexto de playlist
     if (self.useLocalSpotify && [self playLocalTrack:t[@"uri"] positionMs:pos contextSrc:src]) {
         NSMutableDictionary *lt = [t mutableCopy];
-        [self finishLocalTune:lt posSec:pos / 1000.0 flip:flip];
+        [self finishLocalTune:lt posSec:pos / 1000.0 flip:flip fromStart:fromStart];
         return;
     }
     if (![self waitForQuotaOrAbort]) { [self note429]; return; }
@@ -2066,11 +2181,17 @@ static double ASFloat(NSString *s) {
         }
         [self saveStore];
         // Siempre encolar (si busy=return se perdía el cambio de playlist)
+        NSInteger watchId = ++self.tuneWatchId;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (!self.busy || self.tuneWatchId != watchId) return;
+            self.busy = NO;
+            [self send:@{@"t": @"done", @"a": @"unlock"}]; // silencioso: sin toast
+        });
         dispatch_async(self.q, ^{
             self.busy = YES;
             // forzar reopen de contexto: localCtxSrc ya quedó nil al cambiar fuente
             [self cambiarRadio:YES device:nil fromStart:NO flip:YES];
-            self.busy = NO;
+            if (self.tuneWatchId == watchId) self.busy = NO;
             [self send:@{@"t": @"done", @"a": @"setSource"}];
             [self pushState];
             dispatch_async(dispatch_get_main_queue(), ^{ [self ensurePoll:2.0]; });
@@ -2146,25 +2267,20 @@ static double ASFloat(NSString *s) {
         BOOL force = [b[@"force"] boolValue];
         dispatch_async(self.q, ^{ [self loadPlaylists:force]; });
     } else if ([a isEqualToString:@"cambiar"] || [a isEqualToString:@"tune"] || [a isEqualToString:@"inicio"] || [a isEqualToString:@"useDevice"]) {
-        if (self.busy) {
-            // No silenciar: la UI ya puso la bolita; si el nativo sigue busy, desbloquear
-            [self send:@{@"t": @"err", @"msg": @"Sigue sintonizando… prueba de nuevo en un segundo."}];
-            return;
-        }
-        self.busy = YES;
-        // Cambiar/dial: siempre azar + mitad. El flag radio del store solo importa en advanceRadio.
+        // Si ya hay un tune en vuelo, no tirar el mensaje: la UI ya puso busy.
+        // Encolar en q (serial) en vez de return silencioso → evita bolita eterna.
         BOOL radio = YES;
         BOOL fromStart = [a isEqualToString:@"useDevice"] ? self.pendingTuneFromStart : NO;
         NSString *dev = [a isEqualToString:@"useDevice"] ? [b[@"id"] description] : nil;
         if (dev) { self.webWaitId++; self.store[@"device"] = dev; self.store[@"deviceName"] = [b[@"name"] description] ?: @""; self.store[@"deviceType"] = [b[@"type"] description] ?: @""; [self saveStore]; }
         NSInteger watchId = ++self.tuneWatchId;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(7 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             if (!self.busy || self.tuneWatchId != watchId) return;
             self.busy = NO;
-            [self send:@{@"t": @"err", @"msg": @"La sintonía tardó demasiado. Intenta Cambiar de nuevo."}];
-            [self send:@{@"t": @"done", @"a": a}];
+            [self send:@{@"t": @"done", @"a": @"unlock"}];
         });
         dispatch_async(self.q, ^{
+            self.busy = YES;
             if ([a isEqualToString:@"inicio"]) {
                 if (self.useLocalSpotify) {
                     if (![self seekLocalSec:0]) [self send:@{@"t": @"err", @"msg": @"No pude ir al inicio en Spotify.app."}];
@@ -2175,17 +2291,15 @@ static double ASFloat(NSString *s) {
                 }
                 [NSThread sleepForTimeInterval:0.2];
             } else [self cambiarRadio:radio device:dev fromStart:fromStart flip:YES];
-            if (self.tuneWatchId == watchId) self.busy = NO;
+            self.busy = NO;
             [self send:@{@"t": @"done", @"a": a}];
             [self pushState];
             dispatch_async(dispatch_get_main_queue(), ^{ [self ensurePoll:2.0]; });
         });
     } else if ([a isEqualToString:@"unlock"]) {
-        // QoL 3.0: soltar busy trabado sin matar la app
         self.busy = NO;
         self.tuneWatchId++;
         [self send:@{@"t": @"done", @"a": @"unlock"}];
-        [self send:@{@"t": @"note", @"msg": @"Sintonía reiniciada"}];
     } else if ([a isEqualToString:@"seek"]) {
         long long ms = (long long)MAX(0, [b[@"ms"] doubleValue]);
         dispatch_async(self.q, ^{

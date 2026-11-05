@@ -8,8 +8,8 @@ const I={check:'<svg class="ck" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 
  heart:'<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-8.6-9C2.3 7.8 4.3 5 7.3 5c1.9 0 3.1 1 4.7 2.8C13.6 6 14.8 5 16.7 5c3 0 5 2.8 3.9 6-1.6 4.6-8.6 9-8.6 9z"/></svg>',
  list:'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>'};
 let st={cur:'liked',curName:'Liked Songs',radio:true,auth:false,clientId:''},S=null,lastId='',freq=98,busy=false,msgT=0,pls=null,plErr='';
-let panelOpen=true,durSec=0,seekDrag=false,dialDrag=false,acx=null,lastPos=-1,arts=[],flipT=0;
-let dialAnim=0,lastStation=-1,artFront='A',curArt='',skipNextFlip=false;
+let panelOpen=true,durSec=0,seekDrag=false,dialDrag=false,acx=null,lastPos=-1,arts=[];
+let dialAnim=0,lastStation=-1,artFront='A',curArt='';
 
 const SKINS=['onair','neon','classic','vinyl','studio'];
 const SKIN_LABEL={onair:'On Air',neon:'Neon',classic:'Classic',vinyl:'Vinyl',studio:'Studio'};
@@ -164,66 +164,39 @@ function placeNeedle(){
 }
 function setFreq(f){freq=clampFreq(f);placeNeedle()}
 
-// Carátulas atadas al movimiento horizontal del dial (parten y terminan con él)
-let dialFlipOn=false,dialCov=0,dialPxAccum=0,dialLastX=0;
-// Barrido completo ≈ 80 carátulas (~0.25 MHz) — la aguja no debe ir más rápido que el flip
-function pxPerCover(){
- const span=Math.max(1,(DW||dial.clientWidth||312)-44);
- return Math.max(3,span/80);
-}
-function beginDialCovers(){
- if(dialFlipOn)return;
- dialFlipOn=true;dialCov=Math.random()*Math.max(1,arts.length)|0;dialPxAccum=0;
- stopFlip();
- const w=$('artw');if(w)w.classList.add('flipping');
- if(arts.length)showArt(arts[dialCov%arts.length],true);
-}
-function kickDialCover(){
- if(!arts.length)return;
- dialCov=(dialCov+1)%arts.length;
- showArt(arts[dialCov],true);
-}
-function feedDialCovers(dxPx){
- if(!arts.length||!dxPx||coversLocked)return; // si ya hay canción, no pisar
- dialPxAccum+=Math.abs(dxPx);
- const step=pxPerCover();
- while(dialPxAccum>=step){dialPxAccum-=step;kickDialCover()}
-}
-function endDialCovers(){
- if(!dialFlipOn)return;
- dialFlipOn=false;dialPxAccum=0;
- const w=$('artw');if(w)w.classList.remove('flipping');
-}
-
+let dialLastX=0,dialTravel=false,bufferedTuned=null,landingArt='',coversLocked=false,tuneGen=0;
+let primedArt='',tuneWatch=0,phase='idle';
+function setPhase(p){phase=p;document.body.dataset.phase=p}
 function cancelDialAnim(){if(dialAnim){cancelAnimationFrame(dialAnim);dialAnim=0}}
-let dialTravel=false,bufferedTuned=null,landingArt='',coversLocked=false,tuneGen=0;
+function rememberArt(u){
+ if(!u||arts.indexOf(u)>=0)return;
+ arts.unshift(u);if(arts.length>40)arts.length=40;
+ const im=new Image();im.src=u;
+}
 function pinLandingArt(u){
  if(!u)return;
- landingArt=u;rememberArt(u);coversLocked=true;
- const was=dialFlipOn;dialFlipOn=true;showArt(u,true);dialFlipOn=was;
+ landingArt=u;rememberArt(u);coversLocked=true;showArt(u,true);
+}
+function showPendingArt(){
+ if(landingArt)showArt(landingArt,true);
+ else if(primedArt)showArt(primedArt,true);
 }
 function animateDialTo(target,done){
  cancelDialAnim();
  const from=freq,to=clampFreq(target);
- if(Math.abs(to-from)<.05){setFreq(to);endDialCovers();if(done)done();return}
- if(!coversLocked)beginDialCovers();
+ if(Math.abs(to-from)<.05){setFreq(to);if(done)done();return}
+ showPendingArt();
  dialTravel=true;
  placeNeedle();
  const start=performance.now(),dur=Math.min(560,180+Math.abs(to-from)*22);
- let lastX=fx(from);
  const step=now=>{
   const u=Math.min(1,(now-start)/dur),e=1-Math.pow(1-u,3);
-  const f=from+(to-from)*e;
-  const xCont=fx(clampFreq(f));
-  if(!coversLocked)feedDialCovers(xCont-lastX);
-  else if(landingArt&&curArt!==landingArt)showArt(landingArt,true);
-  lastX=xCont;
-  freq=clampFreq(Math.round(f*10)/10);
+  freq=clampFreq(Math.round((from+(to-from)*e)*10)/10);
+  if(landingArt&&curArt!==landingArt)showArt(landingArt,true);
   placeNeedle();
   if(u<1) dialAnim=requestAnimationFrame(step);
   else{
    dialAnim=0;setFreq(to);lastStation=-1;
-   endDialCovers(); // apaga scrub antes del land → fade 1s
    if(landingArt)showArt(landingArt,false);
    dialTravel=false;
    if(done)done();
@@ -231,50 +204,20 @@ function animateDialTo(target,done){
  };
  dialAnim=requestAnimationFrame(step);
 }
-
-function rememberArt(u){
- if(!u||arts.indexOf(u)>=0)return;
- arts.unshift(u);if(arts.length>40)arts.length=40;
- // precarga imagen para que el dial no espere onload
- const im=new Image();im.src=u;
+function armTuneWatch(){
+ clearTimeout(tuneWatch);
+ tuneWatch=setTimeout(()=>{if(busy){unlock();post({a:'unlock'})}},7000);
 }
-function stopFlip(){
- clearTimeout(flipT);flipT=0;
- const w=$('artw');if(w)w.classList.remove('flipping');
-}
-function startFlip(pool){
- stopFlip();
- if(Array.isArray(pool))pool.forEach(u=>{if(typeof u==='string')rememberArt(u);else if(u&&u.art)rememberArt(u.art)});
- if(arts.length<2)return;
- const w=$('artw');if(w)w.classList.add('flipping');
- let i=Math.random()*arts.length|0;
- const tick=()=>{
-  if(!busy){stopFlip();return}
-  i=(i+1+Math.random()*3|0)%arts.length;
-  showArt(arts[i],true);
-  const wait=110+Math.random()*90+(Math.sin(Date.now()/240)+1)*25;
-  flipT=setTimeout(tick,wait);
- };
- tick();
-}
-
-// Dial = carátulas en el viaje. Tune en paralelo para que el final ya sea la canción.
-// phase: idle | tuning | playing — evita busy eterno
-let primedArt='',tuneWatch=0,phase='idle';
-function setPhase(p){phase=p;document.body.dataset.phase=p}
 function tune(opts){
  opts=opts||{};
  if(!st.auth)return;
  if(busy&&!opts.parallel)return;
- if(busy&&opts.parallel&&dialTuneSent)return; // no apilar tunes
+ if(busy&&opts.parallel&&dialTuneSent)return;
  busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
  coversLocked=false;landingArt='';
- if(!opts.parallel){endDialCovers();stopFlip()}
- skipNextFlip=true;
  const gen=++tuneGen;
  if(primedArt){pinLandingArt(primedArt);primedArt=''}
- clearTimeout(tuneWatch);
- tuneWatch=setTimeout(()=>{if(busy){unlock();setMsg('No respondió Spotify. Prueba Cambiar otra vez.')}},12000);
+ armTuneWatch();
  post({a:'tune',radio:true,gen:gen});
 }
 
@@ -287,7 +230,6 @@ function doInicio(){
 function doCambiar(){
  if(busy||!st.auth)return;
  const target=88+Math.random()*20;
- // Tune YA (Spotify) + dial en paralelo → al llegar la carátula final ya está
  tune({fromDial:true,parallel:true});
  animateDialTo(target,null);
 }
@@ -359,9 +301,7 @@ function showArt(u,instant){
  rememberArt(u);syncMini(u);
  if(u===curArt){g.classList.add('on');return}
  const front=artFront==='A'?a:b, back=artFront==='A'?b:a;
- const scrubbing=!!(dialFlipOn||($('artw')&&$('artw').classList.contains('flipping')));
  const finish=()=>{
-  // entra abajo a full; la que sale queda encima y hace fade 1s
   clearTimeout(front._fadeT);clearTimeout(back._fadeT);
   back.src=u;back.className='ai on';
   void front.offsetWidth;
@@ -372,8 +312,7 @@ function showArt(u,instant){
   artFront=artFront==='A'?'B':'A';
   curArt=u;g.src=u;g.classList.add('on');
  };
- // Solo scrub del dial / shuffle rápido: swap duro. Aterrizaje final → siempre fade 1s.
- if(instant&&scrubbing){
+ if(instant){
   clearTimeout(front._fadeT);clearTimeout(back._fadeT);
   back.dataset.u=u;back.src=u;back.className='ai on';
   front.className='ai';
@@ -394,7 +333,10 @@ function setPlaying(on){document.body.classList.toggle('playing',!!on)}
 
 function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  if(s.sp=='err'){meta('Spotify no responde',s.msg||'Inténtalo de nuevo');setPlaying(false);return}
- if(!s.id){meta('Sin reproducción','Pulsa Cambiar para sintonizar');if(!busy){art('');prog(0,0)}lastId='';durSec=0;setPlaying(false);return}
+ if(!s.id){
+  if(busy||dialTravel||phase==='tuning'||lastId)return;
+  meta('Sin reproducción','Pulsa Cambiar para sintonizar');art('');prog(0,0);durSec=0;setPlaying(false);return
+ }
  durSec=(s.dur||0)/1000;const pos=s.pos||0,same=s.id==lastId,playing=s.st=='playing';
  setPlaying(playing);
  const smooth=!instant&&same&&playing&&lastPos>=0&&pos>=lastPos&&pos-lastPos<2.5;
@@ -412,11 +354,10 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  lastId=s.id;lastPos=pos}
 
 function applyTuned(m){
- stopFlip();skipNextFlip=false;primedArt='';
- coversLocked=true; // congela shuffle: ya no pisa la carátula final
- endDialCovers();
+ primedArt='';
+ coversLocked=true;
  meta(m.name||'',m.artist||'');
- if(m.art){landingArt=m.art;rememberArt(m.art);art(m.art,false)} // fade 1s al clavar
+ if(m.art){landingArt=m.art;rememberArt(m.art);art(m.art,false)}
  durSec=(m.dur||0)/1000;const pos=m.pos||0;prog(pos,durSec,false);lastPos=pos;lastId=m.uri||'';
  S=Object.assign({},S||{},{id:m.uri,name:m.name,artist:m.artist,art:m.art,dur:m.dur,pos:pos,st:'playing'});
  setPlaying(true);setPhase('playing');
@@ -430,7 +371,7 @@ function onTuned(m){
 
 function unlock(){
  clearTimeout(tuneWatch);tuneWatch=0;
- busy=false;$('cam').classList.remove('busy');stopFlip();skipNextFlip=false;dialTuneSent=false;
+ busy=false;$('cam').classList.remove('busy');dialTuneSent=false;
  setPhase(lastId?'playing':'idle');
  if(!dialAnim){dialTravel=false;bufferedTuned=null}
 }
@@ -444,18 +385,15 @@ window.onNative=function(m){
  }
  else if(m.t=='tuning'){
   if(!busy){busy=true;setPhase('tuning');$('cam').classList.add('busy')}
-  // flip=false → fin de canción / auto-avance: sin shuffle, solo clava la nueva en tuned
-  if(m.flip===false){skipNextFlip=false;stopFlip();endDialCovers();return}
-  // Tras dial: sin shuffle extra (solo esperar tuned)
-  if(skipNextFlip){skipNextFlip=false;return}
-  playStatic();startFlip(m.arts||arts);
+  if(m.flip===false)return;
+  playStatic();
+  if(primedArt)pinLandingArt(primedArt);
  }
  else if(m.t=='cacheCleared'){
   arts=[];primedArt='';landingArt='';coversLocked=false;
   if(Array.isArray(m.arts)&&m.arts.length)m.arts.forEach(rememberArt);
   else{art('');syncMini('')}
-  if(busy){/* cambio de playlist: sin toast de “reiniciadas” */}
-  else setMsg('Memoria y carátulas reiniciadas');
+  if(!busy)setMsg('Memoria y carátulas reiniciadas');
  }
  else if(m.t=='about'){showAbout(m)}
  else if(m.t=='init'){st.cur=m.cur||'liked';st.curName=m.curName||'Liked Songs';st.radio=m.radio!==false;st.auth=!!m.auth;st.clientId=m.clientId||'';
@@ -487,7 +425,7 @@ window.onNative=function(m){
  else if(m.t=='done')unlock();
  else if(m.t=='over'){document.body.classList.toggle('over',!!m.on);drawDial();paintHz();dispatchEvent(new Event('radiofy-layout'))}
  else if(m.t=='shown'){document.body.classList.remove('paused');panelOpen=true;lastPos=-1;drawDial()}
- else if(m.t=='hidden'){document.body.classList.add('paused');panelOpen=false;closeMenu();stopFlip();cancelDialAnim()}};
+ else if(m.t=='hidden'){document.body.classList.add('paused');panelOpen=false;closeMenu();cancelDialAnim()}};
 
 function paintSetup(){$('setup').classList.toggle('on',!st.auth);const c=$('cid');if(!c.value)c.value=st.clientId;
  const n=$('snt');n.textContent='Necesitas Spotify Premium para controlar la reproducción.';n.classList.remove('msg2');if(!st.auth)setTimeout(()=>{if(!c.value)c.focus()},60)}
@@ -510,7 +448,6 @@ $('resetMem').onclick=ev=>{
  unlock();
  post({a:'unlock'});
  post({a:'clearCache'});
- setMsg('Sintonía y memoria reiniciadas');
 };
 function showAbout(m){
  const a=$('about');if(!a)return;
@@ -537,23 +474,21 @@ function paintSrc(){
 let dialPtr=0,dialMoved=false,dialTuneSent=false;
 function onDialDown(ev){
  if(busy||!st.auth)return;ev.preventDefault();
- cancelDialAnim();endDialCovers();
+ cancelDialAnim();
  dialDrag=true;dialMoved=false;dialTuneSent=false;dialPtr=ev.clientX;dialLastX=ev.clientX;lastStation=-1;
  dial.setPointerCapture&&dial.setPointerCapture(ev.pointerId);
 }
 function onDialMove(ev){
  if(!dialDrag)return;
- const dx=ev.clientX-dialLastX;dialLastX=ev.clientX;
+ dialLastX=ev.clientX;
  if(Math.abs(ev.clientX-dialPtr)>5){
   if(!dialMoved){
-   dialMoved=true;beginDialCovers();dialTravel=true;bufferedTuned=null;
-   // Disparar tune mientras aún giras → al soltar suele estar lista la carátula final
+   dialMoved=true;dialTravel=true;bufferedTuned=null;showPendingArt();
    if(!dialTuneSent){dialTuneSent=true;tune({fromDial:true,parallel:true})}
   }
  }
  if(dialMoved){
-  if(coversLocked||landingArt){if(landingArt&&curArt!==landingArt)showArt(landingArt,true)}
-  else feedDialCovers(dx);
+  showPendingArt();
   setFreq(freqFromX(ev.clientX));
  }
 }
@@ -561,7 +496,6 @@ function onDialUp(ev){
  if(!dialDrag)return;dialDrag=false;
  const target=freqFromX(ev.clientX);
  if(landingArt)showArt(landingArt,true);
- endDialCovers();
  dialTravel=false;
  if(dialMoved){
   setFreq(target);
@@ -631,15 +565,16 @@ menu.addEventListener('click',ev=>{ev.stopPropagation();
  if(mi.hasAttribute('data-skin')){setSkin(mi.getAttribute('data-skin'));closeMenu();return}
  if(mi.hasAttribute('data-act')){const k=mi.getAttribute('data-act');closeMenu();if(k=='web')post({a:'openWeb'});else if(k=='here'){webWait=true;paintDev();setMsg('Pulsa play una vez en open.spotify.com; Radiofy pasará la música a este Mac sola.');post({a:'thisMac'})}return}
  if(mi.hasAttribute('data-dev')){closeMenu();const dv={id:mi.getAttribute('data-dev'),name:mi.getAttribute('data-n'),type:mi.getAttribute('data-ty')};webWait=false;paintDev(dv);
-  if(pick){busy=true;$('cam').classList.add('busy');playStatic();startFlip(arts);post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
+  if(pick){busy=true;setPhase('tuning');$('cam').classList.add('busy');playStatic();if(primedArt)pinLandingArt(primedArt);armTuneWatch();post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
  if(mi.hasAttribute('data-u')){
   const next=mi.getAttribute('data-u'),name=mi.getAttribute('data-n')||'Playlist',changed=next!==st.cur;
   st.cur=next;st.curName=name;paintSrc();closeMenu();
   if(changed&&st.auth){
    // Aunque busy: encolar setSource (nativo serializa); no perder el cambio
-   busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('Sintonizando '+name+'…');playStatic();lastPos=-1;
+   busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
    // Limpiar carátulas YA: no mostrar covers de la playlist anterior
    arts=[];primedArt='';landingArt='';coversLocked=false;art('');syncMini('');
+   armTuneWatch();
    post({a:'setSource',cur:next,curName:name});
   }else save();
  }
