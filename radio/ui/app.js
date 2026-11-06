@@ -178,8 +178,8 @@ function pinLandingArt(u){
  landingArt=u;rememberArt(u);coversLocked=true;showArt(u,true);
 }
 function showPendingArt(){
+ // Solo carátula ya confirmada por tuned — nunca primed (suele ser otra pista).
  if(landingArt)showArt(landingArt,true);
- else if(primedArt)showArt(primedArt,true);
 }
 function animateDialTo(target,done){
  cancelDialAnim();
@@ -214,17 +214,18 @@ function tune(opts){
  if(busy&&!opts.parallel)return;
  if(busy&&opts.parallel&&dialTuneSent)return;
  busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
- coversLocked=false;landingArt='';
+ // Nada de carátula hasta tuned: primed ≠ lo que AS next toca → flash incorrecto.
+ coversLocked=false;landingArt='';primedArt='';art('');syncMini('');
  const gen=++tuneGen;
- if(primedArt){pinLandingArt(primedArt);primedArt=''}
  armTuneWatch();
  post({a:'tune',radio:true,gen:gen});
 }
 
 function doInicio(){
+ // Clase "spin" (NO "go"): .go es el botón de login y revienta el layout del pill.
  const p=$('ini'),m=$('miniIni');
- if(p){p.classList.remove('go');void p.offsetWidth;p.classList.add('go')}
- if(m){m.classList.remove('go');void m.offsetWidth;m.classList.add('go')}
+ if(p){p.classList.remove('spin');void p.offsetWidth;p.classList.add('spin')}
+ if(m){m.classList.remove('spin');void m.offsetWidth;m.classList.add('spin')}
  lastPos=-1;post({a:'inicio'});
 }
 function doCambiar(){
@@ -333,6 +334,8 @@ function setPlaying(on){document.body.classList.toggle('playing',!!on)}
 
 function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  if(s.sp=='err'){meta('Spotify no responde',s.msg||'Inténtalo de nuevo');setPlaying(false);return}
+ // Durante sintonía el poll mete temas a medias → carátula incorrecta y luego la buena.
+ if(!instant&&(busy||phase==='tuning'||dialTravel))return;
  if(!s.id){
   if(busy||dialTravel||phase==='tuning'||lastId)return;
   meta('Sin reproducción','Pulsa Cambiar para sintonizar');art('');prog(0,0);durSec=0;setPlaying(false);return
@@ -340,10 +343,8 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  durSec=(s.dur||0)/1000;const pos=s.pos||0,same=s.id==lastId,playing=s.st=='playing';
  setPlaying(playing);
  const smooth=!instant&&same&&playing&&lastPos>=0&&pos>=lastPos&&pos-lastPos<2.5;
- // Spotify.app = fuente de verdad: si el tema cambió, la UI sigue SIEMPRE
  if(!same||s.force){
   meta(s.name||'',s.artist||'');
-  // Solo nueva carátula si cambió el tema (evita flash AS→oEmbed→poll)
   if(s.art&&!same){rememberArt(s.art);art(s.art,true)}
   else if(s.art&&!curArt){rememberArt(s.art);art(s.art,true)}
  }else if(!busy&&!dialTravel){
@@ -357,14 +358,13 @@ function applyTuned(m){
  primedArt='';
  coversLocked=true;
  meta(m.name||'',m.artist||'');
- if(m.art){landingArt=m.art;rememberArt(m.art);art(m.art,false)}
+ // instant: el fade de 1s dejaba la carátula "a medias" y se sentía lenta
+ if(m.art){landingArt=m.art;rememberArt(m.art);art(m.art,true)}
  durSec=(m.dur||0)/1000;const pos=m.pos||0;prog(pos,durSec,false);lastPos=pos;lastId=m.uri||'';
  S=Object.assign({},S||{},{id:m.uri,name:m.name,artist:m.artist,art:m.art,dur:m.dur,pos:pos,st:'playing'});
  setPlaying(true);setPhase('playing');
 }
 function onTuned(m){
- if(m.art)pinLandingArt(m.art);
- else coversLocked=true;
  bufferedTuned=null;
  applyTuned(m);
 }
@@ -380,14 +380,14 @@ window.onNative=function(m){
  if(m.t=='state')applyTrack(m,false);
  else if(m.t=='tuned')onTuned(m);
  else if(m.t=='art'){
-  // oEmbed solo si aún no hay carátula (no reemplazar una buena)
-  if(m.uri&&m.uri===lastId&&m.art&&!curArt){rememberArt(m.art);art(m.art,true);landingArt=m.art;coversLocked=true}
+  if(m.uri&&m.uri===lastId&&m.art){rememberArt(m.art);art(m.art,true);landingArt=m.art;coversLocked=true}
  }
  else if(m.t=='tuning'){
   if(!busy){busy=true;setPhase('tuning');$('cam').classList.add('busy')}
   if(m.flip===false)return;
   playStatic();
-  if(primedArt)pinLandingArt(primedArt);
+  // No anticipar carátula: primed ≠ canción final.
+  coversLocked=false;landingArt='';primedArt='';art('');syncMini('');
  }
  else if(m.t=='cacheCleared'){
   arts=[];primedArt='';landingArt='';coversLocked=false;
@@ -565,7 +565,7 @@ menu.addEventListener('click',ev=>{ev.stopPropagation();
  if(mi.hasAttribute('data-skin')){setSkin(mi.getAttribute('data-skin'));closeMenu();return}
  if(mi.hasAttribute('data-act')){const k=mi.getAttribute('data-act');closeMenu();if(k=='web')post({a:'openWeb'});else if(k=='here'){webWait=true;paintDev();setMsg('Pulsa play una vez en open.spotify.com; Radiofy pasará la música a este Mac sola.');post({a:'thisMac'})}return}
  if(mi.hasAttribute('data-dev')){closeMenu();const dv={id:mi.getAttribute('data-dev'),name:mi.getAttribute('data-n'),type:mi.getAttribute('data-ty')};webWait=false;paintDev(dv);
-  if(pick){busy=true;setPhase('tuning');$('cam').classList.add('busy');playStatic();if(primedArt)pinLandingArt(primedArt);armTuneWatch();post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
+  if(pick){busy=true;setPhase('tuning');$('cam').classList.add('busy');playStatic();primedArt='';armTuneWatch();post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
  if(mi.hasAttribute('data-u')){
   const next=mi.getAttribute('data-u'),name=mi.getAttribute('data-n')||'Playlist',changed=next!==st.cur;
   st.cur=next;st.curName=name;paintSrc();closeMenu();
