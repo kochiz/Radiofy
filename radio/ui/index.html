@@ -7,28 +7,27 @@
  </div>
  <header class="hd">
   <button class="logo" id="logo" type="button" title="Vista minimal">
-   <span class="wstage" id="wstage" aria-hidden="true">
-    <svg class="wv" viewBox="0 0 160 36" overflow="visible">
-     <defs>
-      <linearGradient id="gw" x1="0" x2="1"><stop id="gw0" offset="0" stop-color="#ff3b4a"/><stop id="gw1" offset="1" stop-color="#ff6b3b"/></linearGradient>
-      <linearGradient id="fadeX" x1="0" y1="0" x2="1" y2="0">
-       <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-       <stop offset=".14" stop-color="#fff" stop-opacity="1"/>
-       <stop offset=".86" stop-color="#fff" stop-opacity="1"/>
-       <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-      </linearGradient>
-      <mask id="wm"><rect width="160" height="36" fill="url(#fadeX)"/></mask>
-     </defs>
-     <g mask="url(#wm)">
-      <path id="wvb" class="wvb" d="M0 18 L160 18"/>
-      <path id="wvf" class="wvf" d="M0 18 L160 18"/>
-      <circle id="orb" class="orb" cx="18" cy="18" r="0" fill="url(#gw)" opacity="0"/>
-      <g id="rays"></g>
-     </g>
-    </svg>
-   </span>
-   <h1>Radiofy</h1>
-   <span class="hdr-pl" id="hdrPl"></span>
+   <svg class="brand" id="brand" viewBox="0 0 52 44" overflow="visible" aria-hidden="true">
+    <defs>
+     <linearGradient id="brandGrad" gradientUnits="userSpaceOnUse" x1="86" y1="0" x2="234" y2="0">
+      <stop offset="0%" stop-color="#5B2BFF"/>
+      <stop offset="16%" stop-color="#C12BFF"/>
+      <stop offset="56%" stop-color="#FF2D7A"/>
+      <stop offset="89%" stop-color="#FF7A18"/>
+      <stop offset="100%" stop-color="#FFD000"/>
+     </linearGradient>
+     <filter id="brandGoo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="blur"/>
+      <feColorMatrix in="blur" mode="matrix" result="goo"
+       values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/>
+     </filter>
+    </defs>
+    <!-- Mark a tamaño real del configurador, luego scale al header (evita blob) -->
+    <g id="brandMark" transform="translate(2,2) scale(0.28)">
+     <g id="brandWave" filter="url(#brandGoo)" fill="url(#brandGrad)"></g>
+     <path id="brandPlay" fill="#fff"/>
+    </g>
+   </svg>
   </button>
   <button class="ov" id="ov" type="button" title="Vista minimal">▁</button>
  </header>
@@ -90,8 +89,9 @@
  <div class="menu" id="menu"></div>
  <div class="about" id="about" hidden>
   <div class="about-card">
+   <div class="about-brand" id="aboutBrand" aria-hidden="true"></div>
    <h2>Radiofy</h2>
-   <p class="about-ver" id="aboutVer">3.0-b43</p>
+   <p class="about-ver" id="aboutVer">3.0-b47</p>
    <p class="about-desc">Radio digital en la barra de menú. Pulsa Cambiar, sintoniza tus playlists y deja que el vibe elija el momento.</p>
    <p class="about-meta">Spotify Premium · macOS</p>
    <button class="about-ok" id="aboutOk" type="button">Listo</button>

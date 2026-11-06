@@ -6,22 +6,18 @@ svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-l
 .paused *,.paused *:before,.paused *:after{animation-play-state:paused!important}
 .app{position:relative;height:100%;display:flex;flex-direction:column;align-items:stretch;padding:12px 18px 0;border-radius:var(--radius,20px);
  background:var(--bg1,#0c0c12);box-shadow:inset 0 0 0 .5px var(--stroke),inset 0 1px 0 rgba(255,255,255,.08)}
-/* header: partículas + Radiofy; skin solo en el footer */
-.hd{position:relative;display:flex;align-items:center;justify-content:center;height:32px;margin-bottom:0;overflow:visible;flex:none}
-.logo{position:relative;display:flex;align-items:center;justify-content:center;height:32px;padding:0 8px;border-radius:0;cursor:pointer;overflow:visible;background:transparent!important}
+/* header: brand mark gooey + RADIOFY */
+.hd{position:relative;display:flex;align-items:center;justify-content:center;height:36px;margin-bottom:0;overflow:visible;flex:none}
+.logo{position:relative;display:flex;align-items:center;justify-content:center;height:36px;padding:0 4px;border-radius:0;cursor:pointer;overflow:visible;background:transparent!important}
 .logo:hover{background:transparent!important}
-.logo h1{position:relative;z-index:2;font:700 20px/1 "Avenir Next Condensed","Avenir Next","Futura",sans-serif;letter-spacing:.04em;text-transform:uppercase;pointer-events:none;text-shadow:0 0 14px rgba(0,0,0,.45),0 1px 0 rgba(0,0,0,.25)}
-.wstage{position:absolute;left:50%;top:50%;width:200px;height:36px;margin:-18px 0 0 -100px;z-index:0;pointer-events:none;overflow:visible;opacity:.95}
-.wv{width:180px;height:32px;overflow:visible;display:block}
-.wv path{fill:none;stroke:url(#gw)!important;stroke-linecap:round;stroke-linejoin:round}
-.wv .wvb{stroke-width:2.2;opacity:.28}
-.wv .wvf{stroke-width:1.85;filter:drop-shadow(0 0 5px var(--accent)) drop-shadow(0 0 10px var(--accent2))}
-.wv .orb{filter:drop-shadow(0 0 6px var(--accent))}
-.wv .ray{stroke:url(#gw);stroke-width:1.4;stroke-linecap:round;fill:none;opacity:.85}
+.brand{width:48px;height:36px;display:block;overflow:visible;pointer-events:none;
+ filter:drop-shadow(0 1px 0 rgba(0,0,0,.25)) drop-shadow(0 0 10px rgba(0,0,0,.2))}
+.brand #brandWave,.brand #brandWave *,.brand #brandPlay{stroke:none!important;fill-rule:nonzero}
 .ov{position:absolute;right:0;top:50%;margin-top:-12px;width:24px;height:24px;border-radius:7px;font-size:14px;line-height:1;color:rgba(255,255,255,.5);z-index:3}
 .ov:hover{background:rgba(255,255,255,.08);color:#fff}
 .brand-wave{display:none}
 .hdr-pl{display:none}
+.wstage,.wv{display:none!important}
 .wall-proj{display:none!important}
 .skin-hd{display:none!important}
 .studio-hero{display:none}
@@ -117,10 +113,8 @@ body.over .app{padding:8px 12px 10px;border-radius:14px;justify-content:flex-sta
 body.over .now-card,body.over .artw,body.over .dial,body.over .hzr,body.over .btns,body.over .dv,body.over .ft,body.over .setup,body.over .menu,body.over .ov,body.over .grill,body.over .about,body.over .studio-hero{display:none!important}
 body.over .mini{display:grid}
 body.over .hd{height:22px;margin:0;flex:none}
-body.over .logo{height:22px;padding:0 4px}
-body.over .logo h1{font-size:12px}
-body.over .wstage{width:110px;height:22px;margin:-11px 0 0 -55px}
-body.over .wv{width:110px;height:22px}
+body.over .logo{height:22px;padding:0 2px}
+body.over .brand{width:30px;height:22px}
 body.over .meta{display:none!important}
 .pill:hover{background:rgba(255,255,255,.1)}.pill:active{transform:scale(.97)}
 .pill svg{width:18px;height:18px;stroke:rgba(255,255,255,.85)}
@@ -148,6 +142,9 @@ body.over .meta{display:none!important}
 .about-card{position:relative;width:100%;max-width:280px;padding:28px 22px 18px;border-radius:18px;text-align:center;
  background:rgba(10,10,12,.96);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14),0 18px 40px rgba(0,0,0,.5);overflow:hidden}
 .about-fx,.about-wave{display:none!important}
+.about-brand{width:72px;height:58px;margin:0 auto 10px}
+.about-brand svg{width:100%;height:100%;display:block;overflow:visible}
+.about-brand svg *{stroke:none}
 .about-card h2{margin-top:4px;font:700 18px/1.1 "Avenir Next Condensed","Avenir Next",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#fff}
 .about-ver{margin-top:8px;font-size:12px;color:rgba(255,255,255,.4);font-variant-numeric:tabular-nums}
 .about-desc{margin-top:14px;font-size:13px;line-height:1.45;color:rgba(255,255,255,.7)}
