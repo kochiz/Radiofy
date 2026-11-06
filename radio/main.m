@@ -76,7 +76,7 @@ static NSImage *WaveIcon(void) {
 @property BOOL busy, polling, pendingRadio;
 @property (atomic) NSInteger webWaitId;
 @property (strong) NSURLSession *session;
-@property (copy) NSString *clientId, *meId, *lastAuthErr;
+@property (copy) NSString *clientId, *meId, *meCountry, *lastAuthErr;
 @property (strong) NSMutableDictionary *tokens;      // tokens.json (0600)
 @property (atomic) int listenFd;
 @property (atomic) NSInteger tuneWatchId;
@@ -84,12 +84,16 @@ static NSImage *WaveIcon(void) {
 @property (strong) NSArray *playlists;
 @property (strong) NSMutableDictionary *totals, *recent;
 @property (strong) NSMutableArray *recentUris, *arts, *recentArtists, *trackPool;
+@property (strong) NSMutableSet *blockedUris; // no reproducibles (CL / local) — no volver a play
+@property (strong) NSMutableDictionary *playlistSeeds; // id → {seed, apiOk} probe en background
 @property (copy) NSString *onAirUri, *onAirArtist, *poolSrc, *localCtxSrc;
 @property (strong) NSMutableDictionary *primedNext; // siguiente canción lista para el dial/Cambiar
 @property NSInteger poolTotal;
 @property NSTimeInterval lastTuneAt; // gracia post-tune mientras Spotify asienta
 @property BOOL awaitingEnd, overscreen, pendingTuneFromStart, useLocalSpotify, suppressResignHide, appleEventsDenied, loadingPlaylists, pinnedTop;
 @property (copy) NSString *lastAppleScriptErr;
+@property (strong) NSRunningApplication *frontBeforeSpotifyAS;
+@property BOOL spotifyWasHiddenBeforeAS;
 @end
 
 @implementation AppDelegate
@@ -153,12 +157,19 @@ static NSImage *WaveIcon(void) {
     [self loadAuth];
     self.totals = [NSMutableDictionary dictionary]; self.recent = [NSMutableDictionary dictionary]; self.recentUris = [NSMutableArray array];
     self.arts = [NSMutableArray array]; self.recentArtists = [NSMutableArray array];
-    self.trackPool = [NSMutableArray array]; self.poolSrc = nil; self.poolTotal = 0;
+    self.trackPool = [NSMutableArray array]; self.blockedUris = [NSMutableSet set];
+    self.playlistSeeds = [NSMutableDictionary dictionary]; self.poolSrc = nil; self.poolTotal = 0;
+    {
+        NSData *sd = [NSData dataWithContentsOfFile:[[self supportDir] stringByAppendingPathComponent:@"playlistSeeds.json"]];
+        id sj = sd.length ? [NSJSONSerialization JSONObjectWithData:sd options:0 error:nil] : nil;
+        if ([sj isKindOfClass:[NSDictionary class]]) [self.playlistSeeds addEntriesFromDictionary:sj];
+    }
     self.awaitingEnd = NO; self.overscreen = NO; self.backoffUntil = 0; self.last429NoteAt = 0;
     self.useLocalSpotify = [[NSFileManager defaultManager] fileExistsAtPath:@"/Applications/Spotify.app"];
     self.appleEventsDenied = NO;
     self.lastAppleScriptErr = nil;
     if ([self.store[@"meId"] isKindOfClass:[NSString class]] && [self.store[@"meId"] length]) self.meId = self.store[@"meId"];
+    if ([self.store[@"meCountry"] isKindOfClass:[NSString class]] && [self.store[@"meCountry"] length]) self.meCountry = self.store[@"meCountry"];
     // Pedir Automatización Radiofy → Spotify (sin esto Cambiar local falla)
     if (self.useLocalSpotify) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -191,6 +202,13 @@ static NSImage *WaveIcon(void) {
     // Limpia backoff local una vez para poder llenar el pool con 1 GET.
     if (self.useLocalSpotify && ![self.store[@"localPlay214"] boolValue]) {
         self.store[@"localPlay214"] = @YES;
+        self.backoffUntil = 0;
+        [self.store removeObjectForKey:@"backoffUntilEpoch"];
+        [self saveStore];
+    }
+    // b25: el probe de b24 dejó 429; limpiar una vez para que Liked/pool vuelvan.
+    if (![self.store[@"clearedProbeBackoff25"] boolValue]) {
+        self.store[@"clearedProbeBackoff25"] = @YES;
         self.backoffUntil = 0;
         [self.store removeObjectForKey:@"backoffUntilEpoch"];
         [self saveStore];
@@ -880,8 +898,84 @@ static NSString *JS(id o, NSString *k) { id v = JOk(o, k); return [v isKindOfCla
     dispatch_async(self.q, ^{ [self clearSongCache]; });
 }
 - (NSString *)appVersion {
-    NSString *v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    return v.length ? v : @"2.2";
+    NSString *v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"3.0";
+    NSString *b = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"0";
+    return [NSString stringWithFormat:@"%@-b%@", v, b];
+}
+- (void)persistPlaylistSeeds {
+    NSString *path = [[self supportDir] stringByAppendingPathComponent:@"playlistSeeds.json"];
+    NSData *d = [NSJSONSerialization dataWithJSONObject:self.playlistSeeds ?: @{} options:NSJSONWritingPrettyPrinted error:nil];
+    if (d) [d writeToFile:path atomically:YES];
+}
+// DESACTIVADO (b25): quemaba cuota → 429 y Liked no abría. No llamar.
+- (void)probePlaylistsInBackground:(NSArray *)items {
+    (void)items;
+}
+// Antes/después de AS de escritura: no dejar Spotify al frente ni “minimizar” si ya estaba abierto.
+- (void)beginSpotifyASQuiet {
+    self.frontBeforeSpotifyAS = [[NSWorkspace sharedWorkspace] frontmostApplication];
+    NSRunningApplication *sp = [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"].firstObject;
+    self.spotifyWasHiddenBeforeAS = (sp == nil) || sp.isHidden;
+}
+- (void)endSpotifyASQuiet {
+    NSRunningApplication *sp = [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"].firstObject;
+    if (self.spotifyWasHiddenBeforeAS && sp) [sp hide];
+    NSRunningApplication *front = self.frontBeforeSpotifyAS;
+    NSString *fid = front.bundleIdentifier;
+    NSString *me = [[NSBundle mainBundle] bundleIdentifier];
+    if (front && !front.terminated && fid.length && ![fid isEqualToString:@"com.spotify.client"] && ![fid isEqualToString:me]) {
+        [front activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+    }
+    self.frontBeforeSpotifyAS = nil;
+}
+- (BOOL)apiPlayerNext {
+    if (![self authed] || [self backoffLeft] > 0 || ![self ensureToken]) return NO;
+    id j = nil;
+    NSInteger s = [self api:@"POST" path:@"/me/player/next" body:nil out:&j];
+    return (s == 204 || s == 200 || s == 202);
+}
+// Abre Liked o playlist por AS (sin Web API). Si el primer tema no suena, next.
+- (NSDictionary *)openPlaylistContextAS:(NSString *)src fromStart:(BOOL)fromStart {
+    if (!src.length) return nil;
+    BOOL liked = [src isEqualToString:@"liked"];
+    if (!liked) {
+        if ([src rangeOfCharacterFromSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]].location != NSNotFound) return nil;
+        if (src.length < 10) return nil;
+    }
+    if (![[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"] count]) {
+        [self ensureSpotifyRunningQuiet];
+        [NSThread sleepForTimeInterval:0.5];
+    }
+    [self beginSpotifyASQuiet];
+    NSString *pl = liked ? @"spotify:collection:tracks" : [NSString stringWithFormat:@"spotify:playlist:%@", src];
+    NSMutableString *as = [NSMutableString stringWithString:
+        @"tell application \"Spotify\"\n"
+         "if not running then return \"\"\n"
+         "try\nset shuffling to true\nend try\n"];
+    [as appendFormat:@"play track \"%@\"\n delay 0.35\n", ASEscape(pl)];
+    [as appendString:
+        @"repeat 6 times\n"
+         "try\nset u to spotify url of current track as string\non error\nset u to \"\"\nend try\n"
+         "if u starts with \"spotify:track:\" then\n"
+         "try\nplay\nend try\n"
+         "delay 0.22\n"
+         "if player state is playing then exit repeat\n"
+         "end if\n"
+         "next track\ndelay 0.12\n"
+         "end repeat\n"];
+    [as appendString:[self appleScriptAfterPlay:fromStart]];
+    [as appendString:@"end tell"];
+    NSDictionary *out = [self localTuneResultFromScript:[self runAppleScript:as timeoutSec:8.0]];
+    if (![out[@"uri"] hasPrefix:@"spotify:track:"]) {
+        NSDictionary *again = [self localSpotifyState];
+        if ([again[@"id"] hasPrefix:@"spotify:track:"]) {
+            out = @{@"uri": again[@"id"] ?: @"", @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
+                    @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
+                    @"dur": again[@"dur"] ?: @0, @"pos": again[@"pos"] ?: @0};
+        }
+    }
+    [self endSpotifyASQuiet];
+    return [out[@"uri"] hasPrefix:@"spotify:track:"] ? out : nil;
 }
 - (void)showAbout:(id)sender {
     [self send:@{@"t": @"about", @"ver": [self appVersion]}];
@@ -1124,6 +1218,7 @@ static double ASFloat(NSString *s) {
         [self ensureSpotifyRunningQuiet];
         [NSThread sleepForTimeInterval:0.5];
     }
+    [self beginSpotifyASQuiet];
     NSMutableString *src = [NSMutableString stringWithString:
         @"tell application \"Spotify\"\n"
          "if not running then return \"off\"\n"];
@@ -1134,8 +1229,8 @@ static double ASFloat(NSString *s) {
     [src appendString:@"return \"ok\"\nend tell"];
     BOOL ok = [[self runAppleScript:src timeoutSec:5.0] isEqualToString:@"ok"];
     if (ok && ctxSrc.length) self.localCtxSrc = [ctxSrc copy];
-    // Sin fallback Web API: PUT /me/player/play activa Spotify.app (abre ventana).
-    if (!ok) [self radioLog:@"playLocalTrack AS fail (no API) uri=%@", uri];
+    if (!ok) [self radioLog:@"playLocalTrack AS fail uri=%@", uri];
+    [self endSpotifyASQuiet];
     return ok;
 }
 - (BOOL)seekLocalSec:(double)sec {
@@ -1177,6 +1272,46 @@ static double ASFloat(NSString *s) {
     else [as appendString:@"set tpos to (tdur / 1000.0) * (0.15 + 0.60 * (random number from 0 to 1))\nset player position to tpos\n"];
     [as appendString:@"end if\nreturn tname & \"\\t\" & tart & \"\\t\" & turl & \"\\t\" & (tdur as string) & \"\\t\" & (tpos as string) & \"\\t\" & tarturl\non error\nreturn \"\"\nend try\n"];
     return as;
+}
+// next + play; si no suena (local / sin derechos en CL / toast “can't play”), salta.
+- (NSString *)appleScriptSkipUntilPlaying:(BOOL)fromStart leadingSkips:(int)skips {
+    NSMutableString *as = [NSMutableString stringWithString:
+        @"tell application \"Spotify\"\n"
+         "if not running then return \"\"\n"
+         "try\nset shuffling to true\nend try\n"];
+    for (int i = 0; i < MAX(0, skips); i++) [as appendString:@"next track\ndelay 0.1\n"];
+    [as appendString:
+        @"repeat 8 times\n"
+         "try\nset u to spotify url of current track as string\non error\nset u to \"\"\nend try\n"
+         "if u starts with \"spotify:track:\" then\n"
+         "try\nplay\nend try\n"
+         "delay 0.28\n"
+         "if player state is playing then exit repeat\n"
+         "end if\n"
+         "next track\n"
+         "delay 0.12\n"
+         "end repeat\n"];
+    [as appendString:[self appleScriptAfterPlay:fromStart]];
+    [as appendString:@"end tell"];
+    return as;
+}
+- (NSDictionary *)tuneViaSkipUntilPlaying:(BOOL)fromStart leadingSkips:(int)skips {
+    [self beginSpotifyASQuiet];
+    NSString *raw = [self runAppleScript:[self appleScriptSkipUntilPlaying:fromStart leadingSkips:skips] timeoutSec:8.0];
+    NSDictionary *out = [self localTuneResultFromScript:raw];
+    if (![out[@"uri"] hasPrefix:@"spotify:track:"]) {
+        NSDictionary *again = [self localSpotifyState];
+        NSString *aid = again[@"id"] ?: @"";
+        if ([aid hasPrefix:@"spotify:track:"] && [again[@"st"] isEqualToString:@"playing"]) {
+            out = @{@"uri": aid, @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
+                    @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
+                    @"dur": again[@"dur"] ?: @0, @"pos": again[@"pos"] ?: @0};
+        } else {
+            out = nil;
+        }
+    }
+    [self endSpotifyASQuiet];
+    return out[@"uri"] ? out : nil;
 }
 // Seed desde cache local de Spotify (sin Web API) para una playlist.
 - (NSString *)seedTrackURIFromSpotifyCache:(NSString *)playlistId {
@@ -1242,84 +1377,88 @@ static double ASFloat(NSString *s) {
         if (src.length < 10) return nil;
     }
     [self radioLog:@"playLocalContext src=%@ needOpen=%d fromStart=%d", src, needOpen ? 1 : 0, fromStart ? 1 : 0];
-    // Solo AppleScript. NUNCA Web API aquí: PUT /me/player/play abre Spotify.app.
-    // NUNCA `play track "spotify:playlist:…"`: diálogo “can't play this”.
     NSDictionary *out = nil;
     if (needOpen) {
-        NSString *seed = [self seedTrackURIForSrc:src sameContext:NO];
-        if (!seed.length) {
-            NSInteger st = 0; id ej = nil;
-            NSDictionary *picked = [self pickTrack:src status:&st json:&ej];
-            seed = picked[@"uri"];
+        // pool/seed → AS (liked=collection, playlist=uri). Sin probe. Sin toast 403.
+        NSInteger st = 0; id ej = nil;
+        NSDictionary *picked = nil;
+        if ([self backoffLeft] <= 0) picked = [self pickTrack:src status:&st json:&ej];
+        NSString *seed = picked[@"uri"];
+        if (![seed hasPrefix:@"spotify:track:"]) {
+            NSDictionary *probed = self.playlistSeeds[src];
+            if ([probed isKindOfClass:[NSDictionary class]] && [probed[@"seed"] isKindOfClass:[NSString class]])
+                seed = probed[@"seed"];
         }
+        if (![seed hasPrefix:@"spotify:track:"]) seed = [self seedTrackURIForSrc:src sameContext:NO];
         // #region agent log
         {
             NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
-            NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H3\",\"runId\":\"b20\",\"location\":\"playLocalContext:needOpen\",\"message\":\"AS seed only no API\",\"data\":{\"src\":\"%@\",\"hasSeed\":%@},\"timestamp\":%lld}\n",
-                              src ?: @"", seed.length ? @"true" : @"false", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
+            NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H10\",\"runId\":\"b25\",\"location\":\"playLocalContext:needOpen\",\"message\":\"seed or AS open\",\"data\":{\"src\":\"%@\",\"pickSt\":%ld,\"hasSeed\":%@},\"timestamp\":%lld}\n",
+                              src ?: @"", (long)st, seed.length ? @"true" : @"false", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
             NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
             if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
             else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
         }
         // #endregion
-        if (seed.length && [seed hasPrefix:@"spotify:track:"]) {
+        if ([seed hasPrefix:@"spotify:track:"] && ![self.blockedUris containsObject:seed]) {
             double posMs = fromStart ? 0 : 30000;
+            if (picked[@"dur"] && !fromStart) {
+                double mid = [self radioMidSecForDurationMs:[picked[@"dur"] doubleValue]] * 1000.0;
+                if (mid > 1) posMs = mid;
+            }
             if ([self playLocalTrack:seed positionMs:posMs contextSrc:src]) {
                 NSDictionary *again = [self localSpotifyState];
                 NSString *aid = again[@"id"] ?: @"";
+                self.localCtxSrc = [src copy];
+                [self radioLog:@"playLocalContext path=seed-open"];
                 if ([aid hasPrefix:@"spotify:track:"]) {
-                    self.localCtxSrc = [src copy];
-                    [self radioLog:@"playLocalContext path=seed-open"];
-                    return @{@"uri": aid, @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
-                             @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
-                             @"dur": again[@"dur"] ?: @0, @"pos": again[@"pos"] ?: @(posMs / 1000.0)};
+                    return @{@"uri": aid, @"name": again[@"name"] ?: (picked[@"name"] ?: @""),
+                             @"artist": again[@"artist"] ?: (picked[@"artist"] ?: @""),
+                             @"akey": [self primaryArtist:again[@"artist"]] ?: (picked[@"akey"] ?: @""),
+                             @"art": again[@"art"] ?: (picked[@"art"] ?: @""),
+                             @"dur": again[@"dur"] ?: (picked[@"dur"] ?: @0),
+                             @"pos": again[@"pos"] ?: @(posMs / 1000.0)};
                 }
+                return @{@"uri": seed, @"name": picked[@"name"] ?: @"", @"artist": picked[@"artist"] ?: @"",
+                         @"akey": picked[@"akey"] ?: @"", @"art": picked[@"art"] ?: @"",
+                         @"dur": picked[@"dur"] ?: @0, @"pos": @(posMs / 1000.0)};
             }
+            [self.blockedUris addObject:seed];
         }
-        [self radioLog:@"playLocalContext FAIL open src=%@ (no AS seed)", src];
-        self.lastAppleScriptErr = @"No pude abrir esa playlist en segundo plano. Deja Spotify sonando en ese listado o prueba otra.";
+        out = [self openPlaylistContextAS:src fromStart:fromStart];
+        // #region agent log
+        {
+            NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
+            NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H10\",\"runId\":\"b25\",\"location\":\"playLocalContext:as-open\",\"message\":\"AS liked or playlist\",\"data\":{\"src\":\"%@\",\"ok\":%@,\"uri\":\"%@\"},\"timestamp\":%lld}\n",
+                              src ?: @"", out[@"uri"] ? @"true" : @"false", out[@"uri"] ?: @"", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
+            NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
+            if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
+        }
+        // #endregion
+        if (out[@"uri"]) {
+            self.localCtxSrc = [src copy];
+            [self radioLog:@"playLocalContext path=as-open"];
+            return out;
+        }
+        [self radioLog:@"playLocalContext FAIL open src=%@ pickSt=%ld", src, (long)st];
+        self.lastAppleScriptErr = @"No pude sintonizar en Spotify.app. Revisa Automatización (Radiofy → Spotify).";
         return nil;
     }
-    // Mismo contexto: next×N por AS + saltar archivos locales (sin API).
-    NSMutableString *as = [NSMutableString stringWithString:
-        @"tell application \"Spotify\"\n"
-         "if not running then return \"\"\n"
-         "try\nset shuffling to true\nend try\n"];
-    for (int i = 0; i < skips; i++) [as appendString:@"next track\ndelay 0.12\n"];
-    // Si cae en local / no-track, next hasta 4 veces más (evita toast “import it”).
-    [as appendString:
-        @"repeat 4 times\n"
-         "try\n"
-         "set u to spotify url of current track as string\n"
-         "if u starts with \"spotify:track:\" then exit repeat\n"
-         "on error\n"
-         "end try\n"
-         "next track\n"
-         "delay 0.12\n"
-         "end repeat\n"];
-    [as appendString:[self appleScriptAfterPlay:fromStart]];
-    [as appendString:@"end tell"];
+    // Mismo contexto: solo AS (next + seek en el mismo script). El api-next de b27
+    // partía en 0 y después seek → se oía el inicio y saltaba al medio.
     // #region agent log
     {
         NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
-        NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H4\",\"runId\":\"b20\",\"location\":\"playLocalContext:same\",\"message\":\"AS next with local-skip no API\",\"data\":{\"src\":\"%@\",\"skips\":%d},\"timestamp\":%lld}\n",
+        NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H13\",\"runId\":\"b28\",\"location\":\"playLocalContext:same\",\"message\":\"AS only no api-next\",\"data\":{\"src\":\"%@\",\"skips\":%d},\"timestamp\":%lld}\n",
                           src ?: @"", skips, (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
         NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
         if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
         else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
     }
     // #endregion
-    out = [self localTuneResultFromScript:[self runAppleScript:as timeoutSec:5.0]];
-    if (!out[@"uri"]) {
-        NSDictionary *again = [self localSpotifyState];
-        NSString *aid = again[@"id"] ?: @"";
-        if ([aid hasPrefix:@"spotify:track:"]) {
-            out = @{@"uri": aid, @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
-                    @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
-                    @"dur": again[@"dur"] ?: @0, @"pos": again[@"pos"] ?: @0};
-        }
-    }
-    if ([out[@"uri"] hasPrefix:@"spotify:track:"]) {
+    out = [self tuneViaSkipUntilPlaying:fromStart leadingSkips:skips];
+    if (out[@"uri"]) {
         self.localCtxSrc = [src copy];
         [self radioLog:@"playLocalContext path=as-same"];
         return out;
@@ -1714,27 +1853,32 @@ static double ASFloat(NSString *s) {
     if (cached.count) [self send:@{@"t": @"playlists", @"items": cached}];
 
     self.loadingPlaylists = YES;
-    // Con cuota activa: no martillar la API; usar cache local de Spotify.app
+    // Con cuota: NO pisar lista larga con cache local más corto (bug b24).
     if ([self backoffLeft] > 0) {
         NSArray *local = [self playlistsFromSpotifyCache];
         self.loadingPlaylists = NO;
-        if (local.count > cached.count || local.count > 1) {
+        if (local.count > cached.count) {
             [self applyPlaylistList:local err:nil];
             return;
         }
         if (cached.count) {
             [self send:@{@"t": @"playlists", @"items": cached, @"err": [self msgFor:429 json:nil]}];
+        } else if (local.count) {
+            [self applyPlaylistList:local err:[self msgFor:429 json:nil]];
         } else {
             [self send:@{@"t": @"playlists", @"items": @[], @"err": [self msgFor:429 json:nil]}];
         }
         return;
     }
 
-    if (!self.meId) {
+    if (!self.meId.length || !self.meCountry.length) {
         id mj = nil;
         if ([self api:@"GET" path:@"/me" body:nil out:&mj] == 200) {
             self.meId = JS(mj, @"id");
-            if (self.meId.length) { self.store[@"meId"] = self.meId; [self saveStore]; }
+            self.meCountry = JS(mj, @"country");
+            if (self.meId.length) self.store[@"meId"] = self.meId;
+            if (self.meCountry.length) self.store[@"meCountry"] = self.meCountry;
+            [self saveStore];
         }
     }
     NSInteger s = 0; id j = nil;
@@ -1766,13 +1910,15 @@ static double ASFloat(NSString *s) {
     }
     NSArray *local = [self playlistsFromSpotifyCache];
     self.loadingPlaylists = NO;
-    if (local.count) {
+    if (local.count > cached.count) {
         [self applyPlaylistList:local err:nil];
         return;
     }
     if (cached.count) {
         self.playlists = cached;
         [self send:@{@"t": @"playlists", @"items": cached, @"err": s ? [self msgFor:s json:j] : nil}];
+    } else if (local.count) {
+        [self applyPlaylistList:local err:nil];
     } else {
         [self send:@{@"t": @"playlists", @"items": @[], @"err": s ? [self msgFor:s json:j] : @"No pude cargar playlists."}];
     }
@@ -1804,7 +1950,12 @@ static double ASFloat(NSString *s) {
     if ([self backoffLeft] > 0) { *st = 429; *ej = nil; return NO; }
     BOOL liked = [src isEqualToString:@"liked"];
     NSString *base = liked ? @"/me/tracks" : [NSString stringWithFormat:@"/playlists/%@/items", Enc(src)];
-    NSString *extra = liked ? @"" : @"&additional_types=track";
+    // market → is_playable refleja derechos en Chile (u otro país de la cuenta)
+    NSString *mkt = self.meCountry.length ? self.meCountry : (self.store[@"meCountry"] ?: @"CL");
+    if (![mkt isKindOfClass:[NSString class]] || !mkt.length) mkt = @"CL";
+    NSString *extra = liked
+        ? [NSString stringWithFormat:@"&market=%@", mkt]
+        : [NSString stringWithFormat:@"&additional_types=track&market=%@", mkt];
     const NSInteger pageSize = 50;
     NSInteger totalHint = self.poolTotal > 0 ? self.poolTotal : pageSize;
     for (int pageTry = 0; pageTry < 2; pageTry++) {
@@ -1859,6 +2010,7 @@ static double ASFloat(NSString *s) {
     NSDictionary *fallback = nil;
     for (NSDictionary *t in self.trackPool) {
         NSString *uri = t[@"uri"];
+        if (!uri.length || [self.blockedUris containsObject:uri]) continue;
         if (self.onAirUri.length && [uri isEqualToString:self.onAirUri]) continue;
         if (!fallback) fallback = t;
         BOOL uriHit = [self.recentUris containsObject:uri];
@@ -1873,10 +2025,12 @@ static double ASFloat(NSString *s) {
         if (![self refillTrackPool:src status:st json:ej]) return nil;
         NSMutableArray *again = [NSMutableArray array];
         for (NSDictionary *t in self.trackPool) {
-            if (self.onAirUri.length && [t[@"uri"] isEqualToString:self.onAirUri]) continue;
+            NSString *u = t[@"uri"];
+            if (!u.length || [self.blockedUris containsObject:u]) continue;
+            if (self.onAirUri.length && [u isEqualToString:self.onAirUri]) continue;
             [again addObject:t];
         }
-        pool = again.count ? again : [self.trackPool copy];
+        pool = again.count ? again : @[];
         if (!pool.count) { *st = 0; return nil; }
     }
     NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
@@ -1987,59 +2141,15 @@ static double ASFloat(NSString *s) {
     if (![src isKindOfClass:[NSString class]] || !src.length) src = @"liked";
     // Camino A (Spotify.app): SIEMPRE con contexto de playlist (no play de canción suelta → radio).
     if (self.useLocalSpotify) {
-        BOOL sameCtx = self.localCtxSrc.length && [self.localCtxSrc isEqualToString:src];
-        BOOL poolWarm = [src isEqualToString:self.poolSrc] && self.trackPool.count >= 1;
-        NSDictionary *primed = self.primedNext;
-        if (sameCtx && primed[@"uri"] && [primed[@"src"] isEqualToString:src]) {
-            double dur = [primed[@"dur"] doubleValue], posMs = 0;
-            if (!fromStart) posMs = [self radioMidSecForDurationMs:dur] * 1000.0;
-            if ([self playLocalTrack:primed[@"uri"] positionMs:posMs contextSrc:src]) {
-                self.primedNext = nil;
-                if (fromStart) [self seekLocalSec:0];
-                [self finishLocalTune:[primed mutableCopy] posSec:fromStart ? 0 : posMs / 1000.0 flip:flip fromStart:fromStart];
-                return;
-            }
-            self.primedNext = nil;
-        }
+        // primed / playLocalContext: solo URIs del pool. Sin seed leveldb ni AS next (toast CL).
+        self.primedNext = nil;
         NSDictionary *ctx = [self playLocalContext:src fromStart:fromStart];
         if (ctx[@"uri"]) {
-            self.primedNext = nil;
             if (fromStart) [self seekLocalSec:0];
             [self finishLocalTune:ctx posSec:fromStart ? 0 : [ctx[@"pos"] doubleValue] flip:flip fromStart:fromStart];
             return;
         }
-        if (poolWarm) {
-            NSInteger ls = 0; id lj = nil;
-            NSDictionary *picked = [self pickTrack:src status:&ls json:&lj];
-            if (picked[@"uri"]) {
-                double dur = [picked[@"dur"] doubleValue], posMs = 0;
-                if (!fromStart && dur > 20000) posMs = [self radioMidSecForDurationMs:dur] * 1000.0;
-                if ([self playLocalTrack:picked[@"uri"] positionMs:posMs contextSrc:src]) {
-                    if (fromStart) [self seekLocalSec:0];
-                    [self finishLocalTune:[picked mutableCopy] posSec:fromStart ? 0 : posMs / 1000.0 flip:flip fromStart:fromStart];
-                    return;
-                }
-            }
-        }
-        NSString *seed = [self seedTrackURIForSrc:src sameContext:sameCtx];
-        if (seed.length) {
-            double posMs = fromStart ? 0 : 30000;
-            if ([self playLocalTrack:seed positionMs:posMs contextSrc:src]) {
-                if (fromStart) [self seekLocalSec:0];
-                NSDictionary *again = [self localSpotifyState];
-                if ([again[@"id"] hasPrefix:@"spotify:track:"]) {
-                    NSMutableDictionary *lt = [@{@"uri": again[@"id"], @"name": again[@"name"] ?: @"", @"artist": again[@"artist"] ?: @"",
-                                                 @"akey": [self primaryArtist:again[@"artist"]] ?: @"", @"art": again[@"art"] ?: @"",
-                                                 @"dur": again[@"dur"] ?: @0} mutableCopy];
-                    double wantSec = fromStart ? 0 : MAX([again[@"pos"] doubleValue], posMs / 1000.0);
-                    [self finishLocalTune:lt posSec:wantSec flip:flip fromStart:fromStart];
-                    return;
-                }
-            }
-        }
         if (self.appleEventsDenied) {
-            // No abrir playlist URI: deja Spotify abierto con diálogo de error
-            [self ensureSpotifyRunningQuiet];
             [self promptSpotifyAutomation];
             return;
         }
