@@ -6,7 +6,7 @@ Versión actual: **3.5-MULTIVERSE**. Necesitas macOS 10.15+, Spotify Premium y S
 
 ## Para qué sirve
 
-Si dejas música de fondo (laburo, cocina, junta) y te aburre pelear con la cola o con el shuffle, Radiofy te deja tratar Liked Songs o una playlist como una radio: cambias de tema con un clic y sigues.
+Si dejas música de fondo (oficina, cocina, junta) y te aburre pelear con la cola o con el shuffle, Radiofy te deja tratar Liked Songs o una playlist como una radio: cambias de tema con un clic y sigues.
 
 Spotify sigue reproduciendo el audio. Radiofy solo lo controla desde un panel chico en la menubar (o en vista mini, siempre arriba).
 
