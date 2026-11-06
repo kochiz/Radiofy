@@ -280,7 +280,12 @@ function animateDialTo(target,done){
 }
 function armTuneWatch(){
  clearTimeout(tuneWatch);
- tuneWatch=setTimeout(()=>{if(busy){unlock();post({a:'unlock'})}},7000);
+ // Solo liberar CTA a los 7s. NUNCA unlock()+post unlock: abría el gate con tapa vacía
+ // y el nativo perdía busy → state viejo / nombre tarde.
+ tuneWatch=setTimeout(()=>{
+  if(!busy||phase!=='tuning')return;
+  busy=false;$('cam').classList.remove('busy');dialTuneSent=false;
+ },7000);
 }
 function tune(opts){
  opts=opts||{};
@@ -288,8 +293,10 @@ function tune(opts){
  if(busy&&!opts.parallel)return;
  if(busy&&opts.parallel&&dialTuneSent)return;
  busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
- // Nada de carátula hasta tuned: primed ≠ lo que AS next toca → flash incorrecto.
- coversLocked=false;landingArt='';primedArt='';art('');syncMini('');
+ // Mantener tapa/nombre anteriores hasta tuned (primed ≠ final; borrar = vacío + demora).
+ primedArt='';
+ if(curArt){landingArt=curArt;coversLocked=true}
+ else{coversLocked=false;landingArt=''}
  const gen=++tuneGen;
  armTuneWatch();
  post({a:'tune',radio:true,gen:gen});
@@ -450,7 +457,9 @@ function unlock(){
  clearTimeout(tuneWatch);tuneWatch=0;
  busy=false;$('cam').classList.remove('busy');dialTuneSent=false;
  stopTuneFx();
- setPhase(lastId?'playing':'idle');
+ // done/timeout no deben pasar a playing: abre applyTrack con state viejo.
+ // applyTuned / err sí salen de tuning.
+ if(phase!=='tuning') setPhase(lastId?'playing':'idle');
  if(!dialAnim){dialTravel=false;bufferedTuned=null}
 }
 
@@ -464,8 +473,10 @@ window.onNative=function(m){
   if(!busy){busy=true;setPhase('tuning');$('cam').classList.add('busy')}
   if(m.flip===false)return;
   playStatic();
-  // No anticipar carátula: primed ≠ canción final.
-  coversLocked=false;landingArt='';primedArt='';art('');syncMini('');
+  // No borrar tapa: primed ≠ final, pero vaciar = flash vacío / carátula vieja tarde.
+  primedArt='';
+  if(curArt){landingArt=curArt;coversLocked=true}
+  else{coversLocked=false;landingArt=''}
  }
  else if(m.t=='cacheCleared'){
   arts=[];primedArt='';landingArt='';coversLocked=false;
@@ -479,7 +490,7 @@ window.onNative=function(m){
   if(Array.isArray(m.arts))m.arts.forEach(rememberArt);
   if(m.redirect)$('ruri').textContent=m.redirect;if(m.dev)paintDev(m.dev);paintSrc();paintSw();paintSetup();setWait(!!m.waiting);
   if(m.last&&m.last.id)applyTrack(Object.assign({sp:'on'},m.last),true)}
- else if(m.t=='err'){unlock();if(!st.auth){const n=$('snt');n.textContent=m.msg;n.classList.add('msg2')}else setMsg(m.msg)}
+ else if(m.t=='err'){setPhase(lastId?'playing':'idle');unlock();if(!st.auth){const n=$('snt');n.textContent=m.msg;n.classList.add('msg2')}else setMsg(m.msg)}
  else if(m.t=='wait')setWait(m.on);
  else if(m.t=='authed'){pls=null;setMsg('');meta('Conectado','Pulsa Cambiar para sintonizar')}
  else if(m.t=='playlists'){

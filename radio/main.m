@@ -1214,16 +1214,6 @@ static double ASFloat(NSString *s) {
     // en playlists con archivos locales Spotify.app abre el diálogo “can't play this”.
     NSInteger st = 0; id ej = nil;
     NSDictionary *picked = [self pickTrack:src status:&st json:&ej];
-    // #region agent log
-    {
-        NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
-        NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H1\",\"location\":\"playApiContext\",\"message\":\"play by picked uri not position\",\"data\":{\"src\":\"%@\",\"hasPick\":%@,\"uri\":\"%@\"},\"timestamp\":%lld}\n",
-                          src ?: @"", picked[@"uri"] ? @"true" : @"false", picked[@"uri"] ?: @"", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
-        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
-        if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
-    }
-    // #endregion
     if (!picked[@"uri"]) return nil;
     return [self playApiPicked:picked src:src fromStart:fromStart];
 }
@@ -1496,16 +1486,6 @@ static double ASFloat(NSString *s) {
                 seed = probed[@"seed"];
         }
         if (![seed hasPrefix:@"spotify:track:"]) seed = [self seedTrackURIForSrc:src sameContext:NO];
-        // #region agent log
-        {
-            NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
-            NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H10\",\"runId\":\"b25\",\"location\":\"playLocalContext:needOpen\",\"message\":\"seed or AS open\",\"data\":{\"src\":\"%@\",\"pickSt\":%ld,\"hasSeed\":%@},\"timestamp\":%lld}\n",
-                              src ?: @"", (long)st, seed.length ? @"true" : @"false", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
-            NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
-            if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
-        }
-        // #endregion
         if ([seed hasPrefix:@"spotify:track:"] && ![self.blockedUris containsObject:seed]) {
             double posMs = fromStart ? 0 : 30000;
             if (picked[@"dur"] && !fromStart) {
@@ -1532,16 +1512,6 @@ static double ASFloat(NSString *s) {
             [self.blockedUris addObject:seed];
         }
         out = [self openPlaylistContextAS:src fromStart:fromStart];
-        // #region agent log
-        {
-            NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
-            NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H10\",\"runId\":\"b25\",\"location\":\"playLocalContext:as-open\",\"message\":\"AS liked or playlist\",\"data\":{\"src\":\"%@\",\"ok\":%@,\"uri\":\"%@\"},\"timestamp\":%lld}\n",
-                              src ?: @"", out[@"uri"] ? @"true" : @"false", out[@"uri"] ?: @"", (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
-            NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
-            if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
-        }
-        // #endregion
         if (out[@"uri"]) {
             self.localCtxSrc = [src copy];
             [self radioLog:@"playLocalContext path=as-open"];
@@ -1552,16 +1522,6 @@ static double ASFloat(NSString *s) {
         return nil;
     }
     // Mismo contexto: AS next; si falla → pool URI (no dejar la playlist muerta en loop).
-    // #region agent log
-    {
-        NSString *path = @"/Users/kochiz/Desktop/RadioMiniBuild/.cursor/debug-57a462.log";
-        NSString *line = [NSString stringWithFormat:@"{\"sessionId\":\"57a462\",\"hypothesisId\":\"H14\",\"runId\":\"b30\",\"location\":\"playLocalContext:same\",\"message\":\"AS then pool fallback\",\"data\":{\"src\":\"%@\",\"skips\":%d},\"timestamp\":%lld}\n",
-                          src ?: @"", skips, (long long)([[NSDate date] timeIntervalSince1970] * 1000.0)];
-        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
-        if (!fh) [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        else { @try { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; } @finally { [fh closeFile]; } }
-    }
-    // #endregion
     out = [self tuneViaSkipUntilPlaying:fromStart leadingSkips:skips];
     if (out[@"uri"]) {
         self.localCtxSrc = [src copy];
