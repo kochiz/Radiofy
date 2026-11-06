@@ -3,7 +3,7 @@
 
 /* skin / tools del footer */
 .ft-tools{display:flex!important}
-#skinBtn{display:grid!important}
+#skinBtn{display:none!important} /* Multiverse: una sola look (On Air); sin selector de skins */
 #aboutBtn{display:grid!important}
 
 /* Carátula cuadrada en todos salvo vinyl (disco) */

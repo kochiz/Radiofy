@@ -34,12 +34,10 @@ function setSkin(name){
  requestAnimationFrame(()=>{try{drawDial()}catch(e){}});
 }
 window.radiofySetSkin=setSkin;
-try{
- if(localStorage.getItem('radiofy.skinMig')!=='onair-2.25'){
-  setSkin('onair');localStorage.setItem('radiofy.skinMig','onair-2.25');
- }else{
-  const s=localStorage.getItem('radiofy.skin');if(s)setSkin(s);else setSkin('onair');
- }
+ try{
+ localStorage.setItem('radiofy.skin','onair');
+ localStorage.setItem('radiofy.skinMig','multiverse-onair');
+ setSkin('onair');
 }catch(e){setSkin('onair')}
 
 // studio waveform cosmético
@@ -601,14 +599,14 @@ function paintPlist(){
  const box=$('plist');if(!box)return;
  let h='<div class="plist-title">Mis radios</div>';
  const likedOn=st.cur==='liked';
- h+=`<button type="button" class="mi${likedOn?' on':''}" data-u="liked" data-n="Liked Songs"><div class="thumb"></div><div><div class="nm">Liked Songs</div><div class="cnt">Spotify</div></div><span class="st">${likedOn?'en aire':'usar'}</span></button>`;
+ h+=`<button type="button" class="mi${likedOn?' on':''}" data-u="liked" data-n="Liked Songs"><div class="thumb"></div><div class="txt"><div class="nm">Liked Songs</div><div class="cnt">Spotify</div></div><span class="st">${likedOn?'en aire':'usar'}</span></button>`;
  if(pls==null)h+='<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">Cargando…</div>';
  else{
   const list=pls.filter(p=>p.own!==false);
   h+=list.map(p=>{
    const on=st.cur===p.id;
    const art=p.art?`<img alt="" src="${esc(p.art)}">`:'';
-   return `<button type="button" class="mi${on?' on':''}" data-u="${esc(p.id)}" data-n="${esc(p.name)}"><div class="thumb">${art}</div><div><div class="nm">${esc(p.name)}</div><div class="cnt">${p.n!=null?esc(String(p.n))+' · ':''}Spotify</div></div><span class="st">${on?'en aire':'usar'}</span></button>`;
+   return `<button type="button" class="mi${on?' on':''}" data-u="${esc(p.id)}" data-n="${esc(p.name)}"><div class="thumb">${art}</div><div class="txt"><div class="nm">${esc(p.name)}</div><div class="cnt">${p.n!=null?esc(String(p.n))+' · ':''}Spotify</div></div><span class="st">${on?'en aire':'usar'}</span></button>`;
   }).join('');
   if(!list.length)h+=`<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">${esc(plErr||'No hay playlists.')}</div>`;
  }
