@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-static const CGFloat kW = 360, kH = 520, kHOver = 92, kRadius = 24;
+static const CGFloat kW = 360, kH = 548, kHOver = 92, kRadius = 24;
 
 @interface RadioPanel : NSPanel
 @end

@@ -1,17 +1,17 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none;cursor:default}
-body{font:13px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+body{font:13px/1.35 "Avenir Next","Futura","Gill Sans",-apple-system,sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:default;outline:none}
 svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .paused *,.paused *:before,.paused *:after{animation-play-state:paused!important}
 .app{position:relative;height:100%;display:flex;flex-direction:column;align-items:stretch;padding:12px 18px 0;border-radius:var(--radius,20px);
- background:linear-gradient(180deg,var(--bg0),var(--bg1));box-shadow:inset 0 0 0 .5px var(--stroke),inset 0 1px 0 rgba(255,255,255,.08)}
+ background:var(--bg1,#0c0c12);box-shadow:inset 0 0 0 .5px var(--stroke),inset 0 1px 0 rgba(255,255,255,.08)}
 /* header: partículas + Radiofy; skin solo en el footer */
 .hd{position:relative;display:flex;align-items:center;justify-content:center;height:32px;margin-bottom:0;overflow:visible;flex:none}
 .logo{position:relative;display:flex;align-items:center;justify-content:center;height:32px;padding:0 8px;border-radius:0;cursor:pointer;overflow:visible;background:transparent!important}
 .logo:hover{background:transparent!important}
-.logo h1{position:relative;z-index:2;font-size:18px;font-weight:650;letter-spacing:-.01em;pointer-events:none;text-shadow:0 0 14px rgba(0,0,0,.45),0 1px 0 rgba(0,0,0,.25)}
-.wstage{position:absolute;left:50%;top:50%;width:180px;height:32px;margin:-16px 0 0 -90px;z-index:0;pointer-events:none;overflow:visible}
+.logo h1{position:relative;z-index:2;font:700 20px/1 "Avenir Next Condensed","Avenir Next","Futura",sans-serif;letter-spacing:.04em;text-transform:uppercase;pointer-events:none;text-shadow:0 0 14px rgba(0,0,0,.45),0 1px 0 rgba(0,0,0,.25)}
+.wstage{position:absolute;left:50%;top:50%;width:200px;height:36px;margin:-18px 0 0 -100px;z-index:0;pointer-events:none;overflow:visible;opacity:.95}
 .wv{width:180px;height:32px;overflow:visible;display:block}
 .wv path{fill:none;stroke:url(#gw)!important;stroke-linecap:round;stroke-linejoin:round}
 .wv .wvb{stroke-width:2.2;opacity:.28}
@@ -47,23 +47,26 @@ svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-l
 .mb svg{width:15px;height:15px;stroke:#fff}
 .mb.camish{box-shadow:inset 0 0 0 .5px rgba(62,230,255,.45),0 0 8px rgba(62,230,255,.15)}
 .mb.spin svg{animation:back .5s cubic-bezier(.3,.7,.3,1)}
-/* artwork + flip suave */
-.artw{position:relative;width:200px;height:152px;margin:8px auto 0}
+/* artwork: SIEMPRE cuadrada (tapas Spotify). Nunca 200×152 — eso las recorta. */
+.artw{position:relative;width:168px;height:168px;margin:6px auto 0;flex:none}
 .vinyl-stage{position:relative;width:100%;height:100%}
 .platter,.arm,.studio-wave{display:none}
 .art .label{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
 .artw.flipping .art{filter:saturate(1.15) brightness(1.05)}
-/* Scrub/shuffle: swap duro vía JS. Crossfade normal: 1s, sale encima de la que entra */
-.glow{position:absolute;left:8%;top:12%;width:84%;height:84%;object-fit:cover;filter:blur(22px) saturate(1.6);opacity:0;transform:scale(1.08);transition:opacity .7s ease,transform .7s ease}
-.glow.on{opacity:.62}
-.art{position:relative;width:100%;height:100%;border-radius:var(--art-radius,14px);overflow:hidden;background:linear-gradient(140deg,#1d2a52,#3a1f5e 60%,#5a2a4c);box-shadow:0 0 0 .5px rgba(255,255,255,.18),0 10px 30px rgba(0,0,0,.35);transition:transform .55s cubic-bezier(.2,.8,.2,1),filter .35s}
-.art .ai{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:1;transition:opacity 1s ease;will-change:opacity}
+.glow{position:absolute;left:6%;top:6%;width:88%;height:88%;object-fit:cover;filter:blur(22px) saturate(1.6);opacity:0;transform:scale(1.06);transition:opacity .7s ease,transform .7s ease;border-radius:var(--art-radius,0)}
+.glow.on{opacity:.55}
+/* NUNCA gradiente placeholder en .art. Tapa Spotify = cuadrada (radius 0; Vinyl override 50%). */
+.art{position:relative;width:100%;height:100%;aspect-ratio:1;border-radius:var(--art-radius,0);overflow:hidden;background:#121218;box-shadow:0 0 0 .5px rgba(255,255,255,.18),0 4px 14px rgba(0,0,0,.35);transition:transform .55s cubic-bezier(.2,.8,.2,1),filter .35s}
+.art .ai{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:0;z-index:1;transition:opacity .35s ease;will-change:opacity}
 .art .ai.on{opacity:1;z-index:1}
 .art .ai.on.out{opacity:0;z-index:3;transition:opacity 1s ease}
 .art.pop{animation:pop .55s cubic-bezier(.2,.9,.3,1.15)}@keyframes pop{0%{transform:scale(.97)}100%{transform:none}}
-.artw.flipping .art{animation:tunePulse .9s ease-in-out}@keyframes tunePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
-.ph{position:absolute;inset:0;display:grid;place-items:center;z-index:0}
-.ph svg{width:70px;height:40px;stroke:rgba(255,255,255,.35);stroke-width:1.4}
+.ph{display:none!important}
+/* sintonía: partículas en la tapa (no spinner en Cambiar, no gradiente) */
+.tune-fx{position:absolute;inset:0;z-index:4;width:100%;height:100%;pointer-events:none;border-radius:var(--art-radius,0);opacity:0;transition:opacity .22s ease}
+.artw.tuning .tune-fx{opacity:1}
+.artw.tuning .art{filter:brightness(.88)}
+.artw.tuning .glow{opacity:0!important}
 /* toast global: legible, fuera del arte, no tapa carátula */
 .toast,.msg{position:absolute;left:16px;right:16px;bottom:62px;z-index:12;padding:10px 14px;border-radius:12px;
  font-size:12.5px;font-weight:600;line-height:1.35;text-align:center;color:#fff;letter-spacing:.01em;
@@ -72,16 +75,17 @@ svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-l
 .toast.on,.msg.on{opacity:1;transform:none}
 .toast.quota,.msg.quota{opacity:1;transform:none;color:#ffe0b8;box-shadow:0 8px 24px rgba(0,0,0,.45),inset 0 0 0 .5px rgba(255,180,100,.55)}
 body.over .toast,body.over .msg{bottom:8px}
-/* meta */
-.meta{margin-top:10px;padding:0 8px;min-height:40px}
-.ti{font-size:17px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ar{font-size:13px;color:rgba(255,255,255,.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* meta — z-index sobre sombra de tapa; atenuar en tuning (sin pisar texto) */
+.meta{position:relative;z-index:2;margin-top:12px;padding:0 6px;min-height:38px;text-align:center}
+body[data-phase="tuning"] .meta{opacity:.4}
+.ti{font-size:16px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar{font-size:12.5px;color:rgba(255,255,255,.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta.swp .ti,.meta.swp .ar{animation:mi .45s cubic-bezier(.2,.8,.2,1) both}.meta.swp .ar{animation-delay:.06s}
 @keyframes mi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* progress eliminado */
 .pr,.trk,.tm,.fill,.kn{display:none!important}
-/* dial */
-.dial{position:relative;height:44px;margin:8px 0 0;border-radius:var(--dial-radius,16px);overflow:hidden;background:rgba(255,255,255,.045);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16),inset 0 1px 6px rgba(0,0,0,.25);cursor:default;touch-action:none}
+/* dial — objeto principal de sintonía */
+.dial{position:relative;height:48px;margin:10px 0 0;border-radius:var(--dial-radius,16px);overflow:hidden;background:rgba(255,255,255,.045);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16),inset 0 1px 6px rgba(0,0,0,.25);cursor:default;touch-action:none}
 .sc{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .sc line{stroke:rgba(255,255,255,.35);stroke-width:1}
 .sc line.mj{stroke:rgba(255,255,255,.6)}
@@ -89,23 +93,26 @@ body.over .toast,body.over .msg{bottom:8px}
 .nd{position:absolute;left:0;top:6px;width:2px;height:36px;margin-left:-1px;transition:none;will-change:transform;pointer-events:none}
 .nd.anim{transition:transform .55s cubic-bezier(.2,.8,.2,1)}
 .nd i{position:absolute;inset:0;border-radius:1px;background:linear-gradient(180deg,transparent,var(--needle) 28%,var(--needle) 72%,transparent);box-shadow:0 0 8px var(--needle-glow),0 0 2px #fff}
-.hzr{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;font-size:11px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.55);letter-spacing:.04em}
-.hzr span{font-weight:650;font-size:12px;color:rgba(255,255,255,.88);padding:2px 8px;border-radius:8px;background:rgba(0,0,0,.28);box-shadow:inset 0 0 0 .5px rgba(166,107,255,.35)}
-/* buttons */
-.btns{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding:0;height:auto;min-height:72px;min-width:0}
-.cam{position:relative;flex:none;width:72px;height:72px;min-width:72px;min-height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
- background:radial-gradient(circle at 50% 35%,rgba(90,110,200,.22),rgba(20,22,40,.5) 70%);box-shadow:0 0 22px var(--cam-glow),0 0 30px rgba(166,107,255,.12);transition:transform .12s}
+.hzr{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:5px;font:600 11px/1 "SF Mono","Menlo",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.55);letter-spacing:.06em}
+.hzr span{font-weight:700;font-size:12px;color:rgba(255,255,255,.9);padding:3px 10px;border-radius:8px;background:rgba(0,0,0,.32);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2)}
+/* buttons: Cambiar = CTA; Inicio = icono secundario */
+.btns{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px;padding:0;height:auto;min-height:76px;min-width:0}
+.cam{position:relative;flex:none;width:78px;height:78px;min-width:78px;min-height:78px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+ background:radial-gradient(circle at 50% 35%,rgba(90,110,200,.22),rgba(20,22,40,.5) 70%);box-shadow:0 0 22px var(--cam-glow);transition:transform .12s,opacity .2s,filter .2s}
 .cam:active{transform:scale(.95)}
-.cam svg{width:20px;height:20px;stroke:#fff;stroke-width:1.6}
-.cam b{font-size:12px;font-weight:650}
+.cam svg{width:22px;height:22px;stroke:#fff;stroke-width:1.6}
+.cam b{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .ring{position:absolute;inset:0;border-radius:50%;padding:1.2px;overflow:hidden;
  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 .ring i{position:absolute;left:-25%;top:-25%;width:150%;height:150%;background:conic-gradient(from 0deg,var(--accent),var(--accent2),var(--accent3),var(--accent),var(--accent2),var(--accent));animation:rot 6s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
-.cam.busy .ring i{animation-duration:1.2s}
-.cam.busy svg{animation:spin .9s cubic-bezier(.5,0,.5,1) infinite}@keyframes spin{50%{transform:scale(.86) rotate(8deg)}}
-.pill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 14px;border-radius:20px;font-size:13px;font-weight:500;white-space:nowrap;
- background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.28);transition:background .15s,transform .12s}
+/* busy = atenuar CTA (best practice player). NUNCA spin en el botón. */
+.cam.busy{opacity:.48;filter:saturate(.7);pointer-events:none;transform:none}
+.cam.busy:active{transform:none}
+.cam.busy .ring i{animation-play-state:paused;opacity:.45}
+.pill{flex:none;width:48px;height:48px;min-width:48px;padding:0;display:grid;place-items:center;border-radius:14px;font-size:0;font-weight:500;
+ background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22);transition:background .15s,transform .12s}
+.pill .pill-txt{display:none}
 body.over .app{padding:8px 12px 10px;border-radius:14px;justify-content:flex-start;overflow:hidden;gap:6px}
 body.over .now-card,body.over .artw,body.over .dial,body.over .hzr,body.over .btns,body.over .dv,body.over .ft,body.over .setup,body.over .menu,body.over .ov,body.over .grill,body.over .about,body.over .studio-hero{display:none!important}
 body.over .mini{display:grid}
@@ -116,10 +123,10 @@ body.over .wstage{width:110px;height:22px;margin:-11px 0 0 -55px}
 body.over .wv{width:110px;height:22px}
 body.over .meta{display:none!important}
 .pill:hover{background:rgba(255,255,255,.1)}.pill:active{transform:scale(.97)}
-.pill svg{width:17px;height:17px}
+.pill svg{width:18px;height:18px;stroke:rgba(255,255,255,.85)}
 .pill.spin svg{animation:back .5s cubic-bezier(.3,.7,.3,1)}@keyframes back{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
-/* footer: fuente | tools | radio — sin aplastar el chip */
-.ft{display:flex;align-items:center;gap:6px;margin:8px -18px 0;padding:0 12px;height:48px;box-shadow:inset 0 .5px 0 rgba(255,255,255,.14);min-width:0;flex:none}
+/* footer: playlist + tools; modo radio solo switch (sin etiqueta) */
+.ft{display:flex;align-items:center;gap:6px;margin:8px -18px 0;padding:0 12px;height:44px;box-shadow:inset 0 .5px 0 rgba(255,255,255,.14);min-width:0;flex:none}
 .chip{flex:1 1 auto;min-width:0;max-width:100%;display:flex;align-items:center;gap:8px;height:36px;padding:0 8px 0 10px;border-radius:11px;font-size:12.5px;
  background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.24);transition:background .15s}
 .chip:hover,.chip.on{background:rgba(255,255,255,.1)}
@@ -127,6 +134,7 @@ body.over .meta{display:none!important}
 .chip span{flex:1;min-width:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip .chv{width:13px;height:13px;flex:none;transition:transform .2s}.chip.on .chv{transform:rotate(180deg)}
 .ft-tools{display:flex;align-items:center;gap:5px;flex:none}
+#resetMem{display:none} /* fuera del primer viewport; reset desde menú skin si hace falta */
 .iconbtn{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
  background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.24);transition:background .15s}
 .iconbtn:hover,.iconbtn.on{background:rgba(255,255,255,.1)}
@@ -138,19 +146,18 @@ body.over .meta{display:none!important}
  background:rgba(8,10,20,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:inherit}
 .about[hidden]{display:none!important}
 .about-card{position:relative;width:100%;max-width:280px;padding:28px 22px 18px;border-radius:18px;text-align:center;
- background:linear-gradient(165deg,rgba(40,44,70,.95),rgba(14,16,28,.98));box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2),0 16px 40px rgba(0,0,0,.45);overflow:hidden}
-.about-wave{position:absolute;left:10%;right:10%;top:18px;height:28px;opacity:.55;
- background:linear-gradient(90deg,var(--accent),var(--accent2));
- -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28'%3E%3Cpath fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' d='M2 14c8-10 16 10 24 0s16 10 24 0 16 10 24 0 16 10 24 0'/%3E%3C/svg%3E") center/100% 100% no-repeat;
- mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28'%3E%3Cpath fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' d='M2 14c8-10 16 10 24 0s16 10 24 0 16 10 24 0 16 10 24 0'/%3E%3C/svg%3E") center/100% 100% no-repeat}
-.about-card h2{position:relative;margin-top:22px;font-size:22px;font-weight:700;letter-spacing:-.02em}
-.about-ver{margin-top:4px;font-size:12px;color:rgba(255,255,255,.45);font-variant-numeric:tabular-nums}
-.about-desc{margin-top:12px;font-size:13px;line-height:1.45;color:rgba(255,255,255,.72)}
-.about-meta{margin-top:10px;font-size:11.5px;color:rgba(255,255,255,.4)}
-.about-ok{margin-top:16px;width:100%;height:36px;border-radius:12px;font-weight:600;
- background:linear-gradient(90deg,var(--accent),var(--accent2));box-shadow:0 0 14px rgba(62,230,255,.25)}
+ background:rgba(10,10,12,.96);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14),0 18px 40px rgba(0,0,0,.5);overflow:hidden}
+.about-fx,.about-wave{display:none!important}
+.about-card h2{margin-top:4px;font:700 18px/1.1 "Avenir Next Condensed","Avenir Next",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#fff}
+.about-ver{margin-top:8px;font-size:12px;color:rgba(255,255,255,.4);font-variant-numeric:tabular-nums}
+.about-desc{margin-top:14px;font-size:13px;line-height:1.45;color:rgba(255,255,255,.7)}
+.about-meta{margin-top:10px;font-size:11.5px;color:rgba(255,255,255,.38)}
+.about-ok{margin-top:18px;width:100%;height:36px;border-radius:12px;font-weight:600;letter-spacing:.03em;
+ background:rgba(255,255,255,.08);color:#fff;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22)}
+.about-ok:hover{background:rgba(255,255,255,.12)}
 .about-ok:active{transform:scale(.97)}
-.tg{flex:none;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:rgba(255,255,255,.7);white-space:nowrap}
+.tg{flex:none;display:flex;align-items:center;gap:0;font-size:0;color:transparent;white-space:nowrap}
+.tg>span{display:none}
 .sw{position:relative;width:40px;height:24px;border-radius:12px;background:rgba(255,255,255,.18);transition:background .2s,box-shadow .2s;flex:none}
 .sw i{position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .22s cubic-bezier(.3,1.3,.5,1)}
 .sw.on{background:var(--sw-on);box-shadow:0 0 10px rgba(34,211,230,.45)}.sw.on i{transform:translateX(16px)}
@@ -173,7 +180,7 @@ body.over .meta{display:none!important}
 .af input:focus{box-shadow:inset 0 0 0 1px rgba(62,230,255,.7),0 0 8px rgba(62,230,255,.25)}
 .af .row{display:flex;gap:7px;justify-content:flex-end}
 .af .b{height:28px;padding:0 12px;border-radius:8px;font-size:12.5px;background:rgba(255,255,255,.08)}
-.af .b.p{background:linear-gradient(90deg,#1fb8d6,#7b5cf0);box-shadow:0 0 10px rgba(110,140,255,.35)}
+.af .b.p{background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.28)}
 .af .er{font-size:11.5px;color:#ff8fae;min-height:14px}
 .mt{padding:6px 8px 4px;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.45)}
 .mi.dis{opacity:.4;pointer-events:none}
@@ -205,7 +212,7 @@ body.over .meta{display:none!important}
 .setup.wait .wt{display:flex}.setup.wait .go .ring i{animation-duration:1.2s}
 .nt{margin:auto 0 0;font-size:11.5px;text-align:center;color:rgba(255,255,255,.45)}
 .setup .msg2{color:#ff8fae}
-.nd2 .b{height:32px;padding:0 12px;border-radius:8px;font-size:12.5px;background:linear-gradient(90deg,#1fb8d6,#7b5cf0);box-shadow:0 0 10px rgba(110,140,255,.35)}
+.nd2 .b{height:32px;padding:0 12px;border-radius:8px;font-size:12.5px;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.25)}
 /* output device row */
 .dv{display:flex;align-items:center;gap:9px;height:32px;margin:8px -2px 0;padding:0 10px 0 12px;border-radius:12px;font-size:12px;min-width:0;flex:none;
  background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14);transition:background .2s}

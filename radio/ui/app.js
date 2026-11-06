@@ -78,7 +78,8 @@ function paintHz(){
  const led=$('ledHz');if(led)led.textContent=v;
 }
 
-// ----- onda: 22 FM Static (Wave Lab v2) detrás del logo -----
+// ----- partículas del logo (todos los skins) -----
+let logoBoost=0;
 (function(){
  const stage=$('wstage'),logo=$('logo');
  if(!stage||!logo)return;
@@ -99,31 +100,40 @@ function paintHz(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
  };
  const grad=()=>{
-  const c0=($('gw0')&&$('gw0').getAttribute('stop-color'))||'#3ee6ff';
-  const c1=($('gw1')&&$('gw1').getAttribute('stop-color'))||'#a66bff';
+  const c0=($('gw0')&&$('gw0').getAttribute('stop-color'))||'#ff3b4a';
+  const c1=($('gw1')&&$('gw1').getAttribute('stop-color'))||'#ff6b3b';
   const g=ctx.createLinearGradient(0,0,w,0);g.addColorStop(0,c0);g.addColorStop(1,c1);return g;
  };
  const fadeDraw=fn=>{
   ctx.save();fn();
   ctx.globalCompositeOperation='destination-in';
   const m=ctx.createLinearGradient(0,0,w,0);
-  m.addColorStop(0,'rgba(0,0,0,0)');m.addColorStop(.1,'#000');m.addColorStop(.9,'#000');m.addColorStop(1,'rgba(0,0,0,0)');
+  m.addColorStop(0,'rgba(0,0,0,0)');m.addColorStop(.08,'#000');m.addColorStop(.92,'#000');m.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=m;ctx.fillRect(0,0,w,h);ctx.restore();
  };
  const tick=()=>{
   if(panelOpen){
    if(!w)resize();
    t++;
+   if(logoBoost>0)logoBoost*=.94;
    ctx.clearRect(0,0,w,h);
    fadeDraw(()=>{
-    const order=(Math.sin(t*.02)+1)/2;
+    const boost=logoBoost;
+    const order=(Math.sin(t*.025)+1)/2;
     const g=grad();
-    for(let x=0;x<w;x+=3){
+    const step=boost>2?2:3;
+    for(let x=0;x<w;x+=step){
      const u=x/w;
-     const chaos=(Math.sin(x*12.9898+t)*.5+Math.sin(x*78.233+t*.7)*.5)*14;
-     const wave=Math.sin(u*Math.PI*2.5+t*.05)*10*env(u);
-     const y=h/2+wave*(.3+order*.7)+chaos*(1-order)*env(u);
-     ctx.fillStyle=g;ctx.globalAlpha=.5;ctx.fillRect(x,y,2,2);
+     const chaos=(Math.sin(x*12.9898+t)*.5+Math.sin(x*78.233+t*.7)*.5)*(12+boost*3);
+     const wave=Math.sin(u*Math.PI*2.5+t*.06)*(9+boost*2)*env(u);
+     const y=h/2+wave*(.25+order*.75)+chaos*(1-order*.55)*env(u);
+     const sz=boost>4?2.4:1.8;
+     ctx.fillStyle=g;ctx.globalAlpha=.42+.35*Math.min(1,boost/12)+.2*order;
+     ctx.fillRect(x,y,sz,sz);
+     if(boost>6&&x%6===0){
+      ctx.globalAlpha=.25;
+      ctx.fillRect(x+(Math.random()*4-2),y+(Math.random()*6-3),1.2,1.2);
+     }
     }
     ctx.globalAlpha=1;
    });
@@ -137,8 +147,72 @@ function paintHz(){
  addEventListener('radiofy-layout',()=>{w=0;requestAnimationFrame(resize)});
 })();
 
-// El “efecto radio” (mitad de tema / next) vive en Spotify.app, no ruido en Radiofy
-function playStatic(){}
+// Sintonía: estático radio en la tapa (partículas del skin). Sin spin en Cambiar, sin gradiente, sin fuegos.
+let tuneOn=false,tuneParts=[],tuneRaf=0;
+function skinCols(){return SKIN_WAVE[curSkin]||SKIN_WAVE.onair}
+function resizeTuneFx(){
+ const cv=$('tuneFx'),w=$('artw');if(!cv||!w)return null;
+ const r=w.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+ const W=Math.max(1,r.width),H=Math.max(1,r.height);
+ cv.width=Math.floor(W*dpr);cv.height=Math.floor(H*dpr);
+ cv.style.width=W+'px';cv.style.height=H+'px';
+ const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return {cv,ctx,W,H};
+}
+function spawnTune(n,W,H){
+ const cols=skinCols();
+ for(let i=0;i<n;i++){
+  const edge=Math.random()<.55;
+  let x,y;
+  if(edge){
+   const s=Math.floor(Math.random()*4);
+   if(s===0){x=Math.random()*W;y=Math.random()*10}
+   else if(s===1){x=Math.random()*W;y=H-Math.random()*10}
+   else if(s===2){x=Math.random()*10;y=Math.random()*H}
+   else{x=W-Math.random()*10;y=Math.random()*H}
+  }else{x=Math.random()*W;y=Math.random()*H}
+  tuneParts.push({
+   x,y,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,
+   life:.55+Math.random()*.7,age:0,sz:1+Math.random()*1.6,
+   c:cols[Math.random()<.5?0:1]
+  });
+ }
+}
+function tickTune(){
+ tuneRaf=0;
+ if(!tuneOn)return;
+ const g=resizeTuneFx();if(!g){tuneRaf=requestAnimationFrame(tickTune);return}
+ const {ctx,W,H}=g;
+ ctx.clearRect(0,0,W,H);
+ if(tuneParts.length<48)spawnTune(3,W,H);
+ const next=[];
+ for(let i=0;i<tuneParts.length;i++){
+  const p=tuneParts[i];
+  p.age+=.016;p.x+=p.vx;p.y+=p.vy;
+  const u=p.age/p.life;if(u>=1)continue;
+  const a=(u<.2?u/.2:1-((u-.2)/.8))*.55;
+  ctx.globalAlpha=a;ctx.fillStyle=p.c;
+  ctx.fillRect(p.x,p.y,p.sz,p.sz);
+  next.push(p);
+ }
+ tuneParts=next;ctx.globalAlpha=1;
+ tuneRaf=requestAnimationFrame(tickTune);
+}
+function startTuneFx(){
+ const artw=$('artw');if(artw)artw.classList.add('tuning');
+ tuneOn=true;tuneParts=[];
+ const g=resizeTuneFx();if(g)spawnTune(56,g.W,g.H);
+ if(!tuneRaf)tuneRaf=requestAnimationFrame(tickTune);
+}
+function stopTuneFx(){
+ tuneOn=false;tuneParts=[];
+ const artw=$('artw');if(artw)artw.classList.remove('tuning');
+ const cv=$('tuneFx');if(cv){const c=cv.getContext('2d');if(c)c.clearRect(0,0,cv.width,cv.height)}
+ if(tuneRaf){cancelAnimationFrame(tuneRaf);tuneRaf=0}
+}
+function playStatic(){
+ logoBoost=8;
+ startTuneFx();
+}
 
 
 const dial=$('dial'),sc=$('sc'),nd=$('nd');let DW=0;
@@ -357,21 +431,25 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
 function applyTuned(m){
  primedArt='';
  coversLocked=true;
+ stopTuneFx();
  meta(m.name||'',m.artist||'');
  // instant: el fade de 1s dejaba la carátula "a medias" y se sentía lenta
  if(m.art){landingArt=m.art;rememberArt(m.art);art(m.art,true)}
  durSec=(m.dur||0)/1000;const pos=m.pos||0;prog(pos,durSec,false);lastPos=pos;lastId=m.uri||'';
  S=Object.assign({},S||{},{id:m.uri,name:m.name,artist:m.artist,art:m.art,dur:m.dur,pos:pos,st:'playing'});
  setPlaying(true);setPhase('playing');
+ logoBoost=Math.max(logoBoost,5);
 }
 function onTuned(m){
  bufferedTuned=null;
  applyTuned(m);
+ unlock(); // tapa lista → quitar busy del CTA (sin esperar done)
 }
 
 function unlock(){
  clearTimeout(tuneWatch);tuneWatch=0;
  busy=false;$('cam').classList.remove('busy');dialTuneSent=false;
+ stopTuneFx();
  setPhase(lastId?'playing':'idle');
  if(!dialAnim){dialTravel=false;bufferedTuned=null}
 }
@@ -538,6 +616,7 @@ function renderSkinMenu(){
  SKINS.forEach(id=>{
   h+=`<button class="mi" data-skin="${id}">${curSkin===id?I.check:I.dot}${SKIN_IC[id]}<span class="nm">${SKIN_LABEL[id]}</span></button>`;
  });
+ h+='<div class="mhr"></div><button class="mi" data-act="resetMem">'+I.dot+'<span class="nm">Reiniciar sintonía</span></button>';
  menu.innerHTML=h;
 }
 function openMenu(){renderMenu();menu.classList.add('on');$('dv').classList.remove('on');setSkinBtnOn(false);$('chip').classList.add('on');post({a:'playlists',force:true})}
@@ -563,7 +642,7 @@ menu.addEventListener('click',ev=>{ev.stopPropagation();
  // OJO: body tiene data-skin → NUNCA usar closest('[data-skin]') a pelo (siempre pega en body = "Skin Neon")
  const mi=ev.target.closest('button.mi');if(!mi||!menu.contains(mi))return;
  if(mi.hasAttribute('data-skin')){setSkin(mi.getAttribute('data-skin'));closeMenu();return}
- if(mi.hasAttribute('data-act')){const k=mi.getAttribute('data-act');closeMenu();if(k=='web')post({a:'openWeb'});else if(k=='here'){webWait=true;paintDev();setMsg('Pulsa play una vez en open.spotify.com; Radiofy pasará la música a este Mac sola.');post({a:'thisMac'})}return}
+ if(mi.hasAttribute('data-act')){const k=mi.getAttribute('data-act');closeMenu();if(k=='web')post({a:'openWeb'});else if(k=='here'){webWait=true;paintDev();setMsg('Pulsa play una vez en open.spotify.com; Radiofy pasará la música a este Mac sola.');post({a:'thisMac'})}else if(k=='resetMem'){const b=$('resetMem');if(b)b.click()}return}
  if(mi.hasAttribute('data-dev')){closeMenu();const dv={id:mi.getAttribute('data-dev'),name:mi.getAttribute('data-n'),type:mi.getAttribute('data-ty')};webWait=false;paintDev(dv);
   if(pick){busy=true;setPhase('tuning');$('cam').classList.add('busy');playStatic();primedArt='';armTuneWatch();post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
  if(mi.hasAttribute('data-u')){
