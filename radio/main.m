@@ -1,4 +1,4 @@
-// Radiofy 3.0 — menu-bar digital radio (Spotify.app local-first + Web API opcional).
+// Radiofy 3.5-MULTIVERSE — menu-bar digital radio (Spotify.app local-first + Web API opcional).
 // UI: WKWebView (ui/index.html). Bridge: messageHandlers.radio.
 // Build: ./build_mac.sh
 #import <Cocoa/Cocoa.h>
@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-static const CGFloat kW = 360, kH = 548, kHOver = 92, kRadius = 24;
+static const CGFloat kW = 360, kH = 640, kHOver = 56, kRadius = 24;
 
 @interface RadioPanel : NSPanel
 @end
@@ -1611,38 +1611,14 @@ static double ASFloat(NSString *s) {
         NSString *artist = loc[@"artist"] ?: @"";
         double durMs = [loc[@"dur"] doubleValue];
         double posSec = [loc[@"pos"] doubleValue];
-        BOOL force = NO;
         NSString *prev = self.onAirUri ?: @"";
         if (self.awaitingEnd && prev.length && !self.busy) {
             if ([uri isEqualToString:prev] && durMs > 0 && posSec * 1000 >= durMs - 1500) { [self advanceRadio]; return; }
         }
-        // Spotify.app es la verdad, pero 1.5s post-tune ignora “drift” (Spotify aún asienta tras next×N)
-        NSTimeInterval sinceTune = [NSDate timeIntervalSinceReferenceDate] - self.lastTuneAt;
-        if (uri.length && prev.length && ![uri isEqualToString:prev]) {
-            if (sinceTune >= 1.5) {
-                BOOL wasAwaiting = self.awaitingEnd;
-                // Solo corregir posición en el salto natural cerca del final (pos nueva ≈ 0 o a mitad rara).
-                // No tocar si el usuario cambió de tema a mano a mitad de canción.
-                self.awaitingEnd = YES;
-                self.onAirUri = uri;
-                self.onAirArtist = [self primaryArtist:artist];
-                force = YES;
-                BOOL radioOn = self.store[@"radio"] == nil ? YES : [self.store[@"radio"] boolValue];
-                if (wasAwaiting) {
-                    if (radioOn && posSec < 2.0) {
-                        double want = [self radioMidSecForDurationMs:durMs];
-                        if (want >= 2.0) {
-                            [self seekLocalSec:want];
-                            posSec = want;
-                        }
-                    } else if (!radioOn && posSec > 2.0 && posSec < 12.0) {
-                        // Entró a mitad (radio Spotify); clavar inicio. Evitar seek si ya va avanzada de verdad.
-                        [self seekLocalSec:0];
-                        posSec = 0;
-                    }
-                }
-            }
-        } else if (uri.length && !prev.length) {
+        // Si Spotify reporta OTRA canción, no adoptarla ni seekear a mitad (eso inventaba el salto A→B).
+        // Esperar a que asiente la URI que sintonizó Radiofy; no empujar state ajeno a la UI.
+        if (uri.length && prev.length && ![uri isEqualToString:prev]) return;
+        if (uri.length && !prev.length) {
             self.onAirUri = uri;
             self.onAirArtist = [self primaryArtist:artist];
         }
@@ -1653,7 +1629,6 @@ static double ASFloat(NSString *s) {
         NSMutableDictionary *st = [loc mutableCopy];
         st[@"t"] = @"state";
         if (art.length) st[@"art"] = art;
-        if (force) st[@"force"] = @YES;
         self.store[@"last"] = @{@"id": uri, @"name": st[@"name"] ?: @"", @"artist": artist, @"art": art ?: @"",
                                 @"dur": st[@"dur"] ?: @0, @"pos": st[@"pos"] ?: @0, @"st": st[@"st"] ?: @"paused"};
         [self send:st];
@@ -1683,24 +1658,10 @@ static double ASFloat(NSString *s) {
     BOOL playing = [JOk(j, @"is_playing") boolValue];
     if (self.awaitingEnd && self.onAirUri.length && !self.busy) {
         if ([uri isEqualToString:self.onAirUri] && durMs > 0 && posMs >= durMs - 1500) { [self advanceRadio]; return; }
-        if (uri.length && ![uri isEqualToString:self.onAirUri]) {
-            BOOL radioOn = self.store[@"radio"] == nil ? YES : [self.store[@"radio"] boolValue];
-            self.awaitingEnd = YES;
-            self.onAirUri = uri;
-            self.onAirArtist = [self primaryArtist:artist];
-            if (radioOn && posMs < 2000) {
-                double want = [self radioMidSecForDurationMs:durMs];
-                if (want >= 2.0) {
-                    id sj = nil;
-                    [self api:@"PUT" path:[NSString stringWithFormat:@"/me/player/seek?position_ms=%lld", (long long)(want * 1000.0)] body:nil out:&sj];
-                    posMs = want * 1000.0;
-                }
-            } else if (!radioOn && posMs > 2000 && posMs < 12000) {
-                id sj = nil;
-                [self api:@"PUT" path:@"/me/player/seek?position_ms=0" body:nil out:&sj];
-                posMs = 0;
-            }
-        }
+        // Misma regla que local: no adoptar URI ajena ni seek a mitad.
+        if (uri.length && ![uri isEqualToString:self.onAirUri]) return;
+    } else if (self.onAirUri.length && uri.length && ![uri isEqualToString:self.onAirUri]) {
+        return;
     }
     NSDictionary *st = @{@"t": @"state", @"sp": @"on", @"id": uri, @"name": JS(it, @"name") ?: @"", @"artist": artist, @"art": art,
                          @"dur": JOk(it, @"duration_ms") ?: @0, @"pos": @(posMs / 1000.0),
@@ -1776,7 +1737,13 @@ static double ASFloat(NSString *s) {
     if ([pid rangeOfCharacterFromSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]].location != NSNotFound) return;
     NSMutableArray *cache = [[self.store[@"playlistsCache"] isKindOfClass:[NSArray class]] ? self.store[@"playlistsCache"] : @[] mutableCopy];
     NSMutableArray *next = [NSMutableArray array];
-    [next addObject:@{@"id": pid, @"name": name.length ? name : @"Playlist", @"n": @0, @"own": @YES}];
+    NSString *keepArt = nil;
+    for (id p in cache) {
+        if ([p isKindOfClass:[NSDictionary class]] && [JS(p, @"id") isEqualToString:pid]) { keepArt = JS(p, @"art"); break; }
+    }
+    NSMutableDictionary *head = [@{@"id": pid, @"name": name.length ? name : @"Playlist", @"n": @0, @"own": @YES} mutableCopy];
+    if (keepArt.length) head[@"art"] = keepArt;
+    [next addObject:head];
     for (id p in cache) {
         if (![p isKindOfClass:[NSDictionary class]] || !JS(p, @"id")) continue;
         if ([JS(p, @"id") isEqualToString:pid]) continue;
@@ -1899,7 +1866,15 @@ static double ASFloat(NSString *s) {
             if (![p isKindOfClass:[NSDictionary class]] || !JS(p, @"id")) continue;
             BOOL mine = !self.meId.length || [JS(JOk(p, @"owner"), @"id") isEqualToString:self.meId] || [JOk(p, @"collaborative") boolValue];
             id cnt = JOk(JOk(p, @"items"), @"total") ?: JOk(JOk(p, @"tracks"), @"total") ?: @0;
-            [out addObject:@{@"id": JS(p, @"id"), @"name": JS(p, @"name") ?: @"Playlist", @"n": cnt, @"own": @YES, @"mine": @(mine)}];
+            NSString *art = @"";
+            id images = JOk(p, @"images");
+            if ([images isKindOfClass:[NSArray class]] && [(NSArray *)images count]) {
+                // Spotify: [0]=grande … último=chico; para thumb usamos el más chico disponible
+                art = JS([(NSArray *)images lastObject], @"url") ?: JS([(NSArray *)images firstObject], @"url") ?: @"";
+            }
+            NSMutableDictionary *row = [@{@"id": JS(p, @"id"), @"name": JS(p, @"name") ?: @"Playlist", @"n": cnt, @"own": @YES, @"mine": @(mine)} mutableCopy];
+            if (art.length) row[@"art"] = art;
+            [out addObject:row];
         }
         offset += (NSInteger)items.count;
         // Evidencia: page1 trajo 47 (<50) con total=151 → no cortar; seguir hasta offset>=total
@@ -1928,7 +1903,13 @@ static double ASFloat(NSString *s) {
         return;
     }
     if (!force && self.playlists.count > 1 && [NSDate timeIntervalSinceReferenceDate] - self.playlistsAt < 86400) {
-        [self send:@{@"t": @"playlists", @"items": self.playlists}]; return;
+        BOOL missingArt = NO;
+        for (id p in self.playlists) {
+            if (![p isKindOfClass:[NSDictionary class]]) continue;
+            if (!JS(p, @"art").length) { missingArt = YES; break; }
+        }
+        if (!missingArt) { [self send:@{@"t": @"playlists", @"items": self.playlists}]; return; }
+        // Cache viejo sin tapas → refetch
     }
     NSArray *cached = [self playlistMenuItems];
     if (cached.count) [self send:@{@"t": @"playlists", @"items": cached}];
@@ -2411,14 +2392,19 @@ static double ASFloat(NSString *s) {
             last[@"t"] = @"state"; last[@"sp"] = @"on";
             [self send:last];
         }
-        // Cache ya; loadPlaylists pagina todas (levanta backoff solo para ese GET)
+        // Cache ya; si faltan tapas (art) forzar refetch aunque haya ≥8
         dispatch_async(self.q, ^{
             NSArray *have = [self playlistMenuItems];
             if (have.count) {
                 self.playlists = have;
                 [self send:@{@"t": @"playlists", @"items": have}];
             }
-            if (have.count >= 8) return;
+            BOOL missingArt = NO;
+            for (id p in have) {
+                if (![p isKindOfClass:[NSDictionary class]]) continue;
+                if (!JS(p, @"art").length) { missingArt = YES; break; }
+            }
+            if (have.count >= 8 && !missingArt) return;
             [self loadPlaylists:YES];
         });
     } else if ([a isEqualToString:@"save"]) {

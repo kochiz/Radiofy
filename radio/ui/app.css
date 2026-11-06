@@ -6,15 +6,15 @@ svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-l
 .paused *,.paused *:before,.paused *:after{animation-play-state:paused!important}
 .app{position:relative;height:100%;display:flex;flex-direction:column;align-items:stretch;padding:12px 18px 0;border-radius:var(--radius,20px);
  background:var(--bg1,#0c0c12);box-shadow:inset 0 0 0 .5px var(--stroke),inset 0 1px 0 rgba(255,255,255,.08)}
-/* header: brand mark gooey + RADIOFY */
-.hd{position:relative;display:flex;align-items:center;justify-content:center;height:36px;margin-bottom:0;overflow:visible;flex:none}
+/* header: logo izq + MHz der (3.5 Multiverse) */
+.hd{position:relative;display:flex;align-items:center;justify-content:space-between;height:36px;margin-bottom:0;overflow:visible;flex:none}
 .logo{position:relative;display:flex;align-items:center;justify-content:center;height:36px;padding:0 4px;border-radius:0;cursor:pointer;overflow:visible;background:transparent!important}
 .logo:hover{background:transparent!important}
 .brand{width:48px;height:36px;display:block;overflow:visible;pointer-events:none;
  filter:drop-shadow(0 1px 0 rgba(0,0,0,.25)) drop-shadow(0 0 10px rgba(0,0,0,.2))}
 .brand #brandWave,.brand #brandWave *,.brand #brandPlay{stroke:none!important;fill-rule:nonzero}
-.ov{position:absolute;right:0;top:50%;margin-top:-12px;width:24px;height:24px;border-radius:7px;font-size:14px;line-height:1;color:rgba(255,255,255,.5);z-index:3}
-.ov:hover{background:rgba(255,255,255,.08);color:#fff}
+.freq-chip{font:700 11px/1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.06em;color:#ffb0b6;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.4);box-shadow:inset 0 0 0 .5px rgba(255,80,90,.4),inset 0 1px 0 rgba(255,255,255,.06)}
+.ov{display:none!important}
 .brand-wave{display:none}
 .hdr-pl{display:none}
 .wstage,.wv{display:none!important}
@@ -24,24 +24,27 @@ svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-l
 .grill{display:none}
 /* now-card: default = columna; onair usa grid art|meta / progress */
 .now-card{display:flex;flex-direction:column;align-items:stretch;width:100%}
-/* mini bar (overscreen): art | título/artista/MHz | acts — sin vacío */
-.mini{display:none;grid-template-columns:48px minmax(0,1fr) 72px;align-items:center;column-gap:10px;margin:0;padding:0;width:100%;max-width:100%;box-sizing:border-box;flex:none}
+/* mini bar (overscreen): logo | art | info | acts */
+.mini{display:none;grid-template-columns:36px 34px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 10px;width:100%;max-width:100%;box-sizing:border-box;flex:none}
 .mini>*{min-width:0}
-.mini-art{width:48px;height:48px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.06);box-shadow:0 0 0 .5px rgba(255,255,255,.18);justify-self:start;flex:none}
+.mini-logo{border:0;background:transparent;padding:0;cursor:pointer;display:grid;place-items:center}
+.mini-logo .brand{width:36px;height:28px;filter:none}
+.mini-art{width:34px;height:34px;border-radius:7px;overflow:hidden;background:#222;flex:none;cursor:pointer}
 .mini-art img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .35s}
 .mini-art img.on{opacity:1}
-.mini-info{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
-.mini-ti{font-size:13.5px;font-weight:700;letter-spacing:-.01em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
-.mini-sub{display:flex;align-items:center;gap:5px;min-width:0;font-size:11px;line-height:1.2;color:rgba(255,255,255,.5)}
+.mini-info{min-width:0;cursor:pointer}
+.mini-ti{font-size:12px;font-weight:700;letter-spacing:-.02em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
+.mini-sub{margin-top:2px;display:flex;align-items:center;gap:5px;min-width:0;font-size:10.5px;line-height:1;color:rgba(255,255,255,.5)}
 .mini-ar{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mini-dot{flex:none;opacity:.45}
-.mini-hz{flex:none;font:650 10.5px/1 "SF Mono","Menlo",ui-monospace,monospace;letter-spacing:.02em;color:var(--accent,#5dffc0);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mini-hz{flex:none;font:650 10px/1 "SF Mono","Menlo",ui-monospace,monospace;letter-spacing:.02em;color:#ff6b75;font-variant-numeric:tabular-nums;white-space:nowrap}
 .led{display:none} /* legacy */
-.mini-acts{display:flex;align-items:center;justify-content:flex-end;gap:5px;width:72px;min-width:72px;max-width:72px;justify-self:end}
-.mb{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22);transition:transform .12s,background .15s;flex:none}
-.mb:hover{background:rgba(255,255,255,.1)}.mb:active{transform:scale(.94)}
-.mb svg{width:15px;height:15px;stroke:#fff}
-.mb.camish{box-shadow:inset 0 0 0 .5px rgba(62,230,255,.45),0 0 8px rgba(62,230,255,.15)}
+.mini-acts{display:flex;align-items:center;gap:5px;justify-self:end}
+.mb{width:32px;height:32px;border:0;border-radius:8px;display:grid;place-items:center;color:#fff;background:#1c1416;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.5);flex:none}
+.mb:active{transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.55)}
+.mb svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mb.camish{background:#e01e32;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.28)}
+.mb.camish:active{background:#c4182a}
 .mb.spin svg{animation:back .5s cubic-bezier(.3,.7,.3,1)}
 /* artwork: SIEMPRE cuadrada (tapas Spotify). Nunca 200×152 — eso las recorta. */
 .artw{position:relative;width:168px;height:168px;margin:6px auto 0;flex:none}
@@ -80,44 +83,54 @@ body[data-phase="tuning"] .meta{opacity:.4}
 @keyframes mi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* progress eliminado */
 .pr,.trk,.tm,.fill,.kn{display:none!important}
-/* dial — objeto principal de sintonía */
-.dial{position:relative;height:48px;margin:10px 0 0;border-radius:var(--dial-radius,16px);overflow:hidden;background:rgba(255,255,255,.045);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16),inset 0 1px 6px rgba(0,0,0,.25);cursor:default;touch-action:none}
-.sc{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.sc line{stroke:rgba(255,255,255,.35);stroke-width:1}
-.sc line.mj{stroke:rgba(255,255,255,.6)}
-.sc text{fill:rgba(255,255,255,.75);stroke:none;font-size:11px;text-anchor:middle;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
-.nd{position:absolute;left:0;top:6px;width:2px;height:36px;margin-left:-1px;transition:none;will-change:transform;pointer-events:none}
-.nd.anim{transition:transform .55s cubic-bezier(.2,.8,.2,1)}
-.nd i{position:absolute;inset:0;border-radius:1px;background:linear-gradient(180deg,transparent,var(--needle) 28%,var(--needle) 72%,transparent);box-shadow:0 0 8px var(--needle-glow),0 0 2px #fff}
-.hzr{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:5px;font:600 11px/1 "SF Mono","Menlo",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.55);letter-spacing:.06em}
-.hzr span{font-weight:700;font-size:12px;color:rgba(255,255,255,.9);padding:3px 10px;border-radius:8px;background:rgba(0,0,0,.32);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2)}
-/* buttons: Cambiar = CTA; Inicio = icono secundario */
-.btns{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px;padding:0;height:auto;min-height:76px;min-width:0}
-.cam{position:relative;flex:none;width:78px;height:78px;min-width:78px;min-height:78px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
- background:radial-gradient(circle at 50% 35%,rgba(90,110,200,.22),rgba(20,22,40,.5) 70%);box-shadow:0 0 22px var(--cam-glow);transition:transform .12s,opacity .2s,filter .2s}
-.cam:active{transform:scale(.95)}
-.cam svg{width:22px;height:22px;stroke:#fff;stroke-width:1.6}
-.cam b{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
-.ring{position:absolute;inset:0;border-radius:50%;padding:1.2px;overflow:hidden;
- -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
-.ring i{position:absolute;left:-25%;top:-25%;width:150%;height:150%;background:conic-gradient(from 0deg,var(--accent),var(--accent2),var(--accent3),var(--accent),var(--accent2),var(--accent));animation:rot 6s linear infinite}
+/* dial fino + aurora suave */
+.dial{position:relative;height:36px;margin:10px 0 0;border-radius:var(--dial-radius,8px);overflow:hidden;isolation:isolate;background:rgba(8,4,6,.5);box-shadow:inset 0 1px 2px rgba(0,0,0,.45),inset 0 0 0 .5px rgba(255,255,255,.14);cursor:default;touch-action:none}
+.aurora{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:inherit;pointer-events:none;filter:saturate(1.1);opacity:.4}
+.aurora i{position:absolute;width:70%;height:160%;border-radius:50%;mix-blend-mode:screen;filter:blur(16px);opacity:.7;animation:auroraDrift 8s ease-in-out infinite alternate}
+.aurora i:nth-child(1){left:-20%;top:-40%;background:radial-gradient(circle at 30% 40%,#ff2f3f 0%,rgba(255,47,63,.4) 38%,transparent 62%);animation-duration:7s}
+.aurora i:nth-child(2){right:-24%;top:-30%;background:radial-gradient(circle at 60% 50%,#ff7a18 0%,rgba(255,122,24,.35) 40%,transparent 60%);animation-duration:9s;animation-delay:-2s}
+.aurora i:nth-child(3){left:15%;bottom:-55%;background:radial-gradient(circle at 50% 40%,#c12bff 0%,rgba(193,43,255,.35) 38%,transparent 58%);animation-duration:8s;animation-delay:-3.5s}
+.aurora i:nth-child(4){left:28%;top:-25%;width:50%;background:radial-gradient(circle at 40% 50%,#ff2d7a 0%,rgba(255,45,122,.4) 42%,transparent 65%);animation-duration:10s;animation-delay:-1s;opacity:.55}
+@keyframes auroraDrift{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(5%,3%,0) scale(1.06)}100%{transform:translate3d(-4%,-2%,0) scale(1.04)}}
+.sc{position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none}
+.sc line{stroke:rgba(255,255,255,.4);stroke-width:.85}
+.sc line.mj{stroke:rgba(255,255,255,.85);stroke-width:1.1}
+.sc text{fill:rgba(255,255,255,.92);stroke:none;font-size:10px;font-weight:700;text-anchor:middle;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+.nd{position:absolute;left:0;top:2px;z-index:2;width:2.5px;height:32px;margin-left:-1.25px;transition:none;will-change:transform;pointer-events:none}
+.nd.anim{transition:transform .35s ease-out}
+.nd i{position:absolute;inset:0;border-radius:1.5px;background:linear-gradient(180deg,#fff 0%,#fff 12%,var(--needle) 28%,var(--needle) 72%,#fff 88%,#fff 100%);box-shadow:0 0 0 1px rgba(255,255,255,.95),0 0 10px var(--needle-glow,#ff2f3f)}
+.hzr{display:none!important}
+/* botones tecla: Cambiar + Desde el inicio */
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding:0;height:auto;min-height:0;min-width:0}
+.cam{position:relative;flex:none;width:auto;height:42px;min-width:0;min-height:0;border-radius:9px;display:inline-flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;
+ background:#e01e32;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.28),0 1px 0 rgba(0,0,0,.25);transition:transform .1s,background .12s,opacity .12s}
+.cam:active{transform:translateY(1px);background:#c4182a}
+.cam svg{width:14px;height:14px;stroke:#fff;stroke-width:1.6}
+.cam b{font-size:12px;font-weight:650;letter-spacing:.02em;text-transform:uppercase;color:#fff}
+.ring{display:none!important}
 @keyframes rot{to{transform:rotate(360deg)}}
-/* busy = atenuar CTA (best practice player). NUNCA spin en el botón. */
-.cam.busy{opacity:.48;filter:saturate(.7);pointer-events:none;transform:none}
+.cam.busy{opacity:.4;filter:none;pointer-events:none;transform:none}
 .cam.busy:active{transform:none}
-.cam.busy .ring i{animation-play-state:paused;opacity:.45}
-.pill{flex:none;width:48px;height:48px;min-width:48px;padding:0;display:grid;place-items:center;border-radius:14px;font-size:0;font-weight:500;
- background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.22);transition:background .15s,transform .12s}
-.pill .pill-txt{display:none}
-body.over .app{padding:8px 12px 10px;border-radius:14px;justify-content:flex-start;overflow:hidden;gap:6px}
-body.over .now-card,body.over .artw,body.over .dial,body.over .hzr,body.over .btns,body.over .dv,body.over .ft,body.over .setup,body.over .menu,body.over .ov,body.over .grill,body.over .about,body.over .studio-hero{display:none!important}
+.pill{flex:none;width:auto;height:42px;min-width:0;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;font-size:12px;font-weight:650;letter-spacing:.02em;text-transform:uppercase;color:rgba(255,255,255,.92);
+ background:#1c1416;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.55);transition:background .12s,transform .1s}
+.pill .pill-txt{display:inline}
+.pill:hover{background:#261a1d}.pill:active{transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.55)}
+.plist{flex:1;min-height:0;margin-top:12px;display:flex;flex-direction:column;gap:8px;overflow:auto;-webkit-overflow-scrolling:touch}
+.plist-title{font:700 10px/1 inherit;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:0 2px 4px;flex:none}
+.plist .mi{width:100%;height:auto;min-height:56px;border:0;border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;background:rgba(255,255,255,.03);color:#fff;font:inherit;text-align:left;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);flex:none}
+.plist .mi.on{background:rgba(255,47,63,.14);box-shadow:inset 0 0 0 1px rgba(255,47,63,.55)}
+.plist .thumb{width:40px;height:40px;border-radius:8px;overflow:hidden;background:#222}
+.plist .thumb img{width:100%;height:100%;object-fit:cover;display:block;background:#2a2a30}
+.plist .nm{font:700 13px/1.2 inherit}
+.plist .cnt{margin-top:3px;font:500 11px/1 inherit;color:rgba(255,255,255,.45)}
+.plist .st{font:650 10px/1 inherit;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.plist .mi.on .st{color:var(--accent,#ff2f3f)}
+body.over .app{padding:0;border-radius:14px;justify-content:center;overflow:hidden;gap:0}
+body.over .now-card,body.over .artw,body.over .dial,body.over .hzr,body.over .btns,body.over .plist,body.over .dv,body.over .ft,body.over .setup,body.over .menu,body.over .ov,body.over .grill,body.over .about,body.over .studio-hero,body.over .freq-chip,body.over .hd{display:none!important}
 body.over .mini{display:grid}
-body.over .hd{height:22px;margin:0;flex:none}
-body.over .logo{height:22px;padding:0 2px}
-body.over .brand{width:30px;height:22px}
 body.over .meta{display:none!important}
 .pill:hover{background:rgba(255,255,255,.1)}.pill:active{transform:scale(.97)}
-.pill svg{width:18px;height:18px;stroke:rgba(255,255,255,.85)}
+.pill svg{width:14px;height:14px;stroke:rgba(255,255,255,.9)}
 .pill.spin svg{animation:back .5s cubic-bezier(.3,.7,.3,1)}@keyframes back{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
 /* footer: playlist + tools; modo radio solo switch (sin etiqueta) */
 .ft{display:flex;align-items:center;gap:6px;margin:8px -18px 0;padding:0 12px;height:44px;box-shadow:inset 0 .5px 0 rgba(255,255,255,.14);min-width:0;flex:none}
@@ -142,7 +155,7 @@ body.over .meta{display:none!important}
 .about-card{position:relative;width:100%;max-width:280px;padding:28px 22px 18px;border-radius:18px;text-align:center;
  background:rgba(10,10,12,.96);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14),0 18px 40px rgba(0,0,0,.5);overflow:hidden}
 .about-fx,.about-wave{display:none!important}
-.about-brand{width:72px;height:58px;margin:0 auto 10px}
+.about-brand{width:88px;height:68px;margin:0 auto 6px}
 .about-brand svg{width:100%;height:100%;display:block;overflow:visible}
 .about-brand svg *{stroke:none}
 .about-card h2{margin-top:4px;font:700 18px/1.1 "Avenir Next Condensed","Avenir Next",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#fff}

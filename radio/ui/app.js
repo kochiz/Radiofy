@@ -75,25 +75,19 @@ function paintHz(){
  const led=$('ledHz');if(led)led.textContent=v;
 }
 
-// ----- brand mark = logo oficial: 6 barras GORDAS + guatita + play redondo -----
+// ----- brand mark animado: header + mini + about (mismo motor que el mock) -----
 let logoBoost=0;
 (function(){
- const logo=$('logo'),wave=$('brandWave'),play=$('brandPlay'),grad=$('brandGrad'),mark=$('brandMark');
- if(!logo||!wave||!play)return;
- // Como el PNG del brand — NO el JSON de 11 barritas
  const C={
   barCount:6,barW:22,barGap:7,midY:120,
-  // silueta diamante del logo (izq→der)
   heights:[52,96,138,138,96,52],
-  bellyOn:true,bellyRx:16,bellyRy:20,bellyPulse:0.14,bellyDrift:3,
+  bellyRx:16,bellyRy:20,bellyPulse:0.14,bellyDrift:3,
   amp:22,speed:2.8,phase:0.75,wobble:0.5,breath:0.06,
   playSize:1.05,playRound:14
  };
- let bars=[],bellies=[],t0=performance.now();
  const NS='http://www.w3.org/2000/svg';
+ const totalW=C.barCount*C.barW+(C.barCount-1)*C.barGap,x0=160-totalW/2;
  function el(tag){return document.createElementNS(NS,tag)}
- function baseHeights(){return C.heights.slice()}
- // Play redondeado centrado en el bloque de barras
  function roundedPlay(cx,cy,size,round){
   const w=54*size,h=64*size;
   const pts=[[cx-w*.42,cy-h/2],[cx-w*.42,cy+h/2],[cx+w*.55,cy]];
@@ -102,28 +96,40 @@ let logoBoost=0;
    const v1x=P[0]-V[0],v1y=P[1]-V[1],v2x=N[0]-V[0],v2y=N[1]-V[1];
    const L1=Math.hypot(v1x,v1y)||1,L2=Math.hypot(v2x,v2y)||1;
    const r1=Math.min(r,L1*.42),r2=Math.min(r,L2*.42);
-   return{
-    a:[V[0]+v1x/L1*r1,V[1]+v1y/L1*r1],
-    b:[V[0]+v2x/L2*r2,V[1]+v2y/L2*r2],
-    c:V
-   };
+   return{a:[V[0]+v1x/L1*r1,V[1]+v1y/L1*r1],b:[V[0]+v2x/L2*r2,V[1]+v2y/L2*r2],c:V};
   };
-  const k0=corner(pts[2],pts[0],pts[1]);
-  const k1=corner(pts[0],pts[1],pts[2]);
-  const k2=corner(pts[1],pts[2],pts[0]);
+  const k0=corner(pts[2],pts[0],pts[1]),k1=corner(pts[0],pts[1],pts[2]),k2=corner(pts[1],pts[2],pts[0]);
   const f=n=>n.toFixed(2);
   return `M ${f(k0.b[0])} ${f(k0.b[1])} L ${f(k1.a[0])} ${f(k1.a[1])} Q ${f(k1.c[0])} ${f(k1.c[1])} ${f(k1.b[0])} ${f(k1.b[1])} L ${f(k2.a[0])} ${f(k2.a[1])} Q ${f(k2.c[0])} ${f(k2.c[1])} ${f(k2.b[0])} ${f(k2.b[1])} L ${f(k0.a[0])} ${f(k0.a[1])} Q ${f(k0.c[0])} ${f(k0.c[1])} ${f(k0.b[0])} ${f(k0.b[1])} Z`;
  }
- function layoutX0(){
-  const totalW=C.barCount*C.barW+(C.barCount-1)*C.barGap;
-  return {totalW,x0:160-totalW/2,cx:160};
- }
- function build(){
-  wave.innerHTML='';bars=[];bellies=[];
-  const {totalW,x0,cx}=layoutX0();
-  if(grad){grad.setAttribute('x1',x0.toFixed(2));grad.setAttribute('x2',(x0+totalW).toFixed(2))}
-  // Mark centrado en viewBox chico (solo ícono, sin texto)
-  if(mark) mark.setAttribute('transform','translate(-22,-14) scale(0.30)');
+ function mountBrand(svgOrHost,uid){
+  if(!svgOrHost)return null;
+  let svg=svgOrHost;
+  if(svg.tagName.toLowerCase()!=='svg'){
+   svg=el('svg');
+   svg.setAttribute('viewBox','0 0 52 44');
+   svg.setAttribute('overflow','visible');
+   svg.classList.add('brand');
+   svgOrHost.appendChild(svg);
+  }else if(!svg.getAttribute('viewBox'))svg.setAttribute('viewBox','0 0 52 44');
+  const gid=uid+'Grad',fid=uid+'Goo',wid=uid+'W',pid=uid+'P';
+  svg.innerHTML=`<defs>
+   <linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="86" y1="0" x2="234" y2="0">
+    <stop offset="0%" stop-color="#5B2BFF"/><stop offset="16%" stop-color="#C12BFF"/>
+    <stop offset="56%" stop-color="#FF2D7A"/><stop offset="89%" stop-color="#FF7A18"/>
+    <stop offset="100%" stop-color="#FFD000"/>
+   </linearGradient>
+   <filter id="${fid}" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="blur"/>
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/>
+   </filter></defs>
+   <g transform="translate(-22,-14) scale(0.30)">
+    <g id="${wid}" filter="url(#${fid})" fill="url(#${gid})"></g>
+    <path id="${pid}" fill="#fff"/>
+   </g>`;
+  const wave=svg.querySelector('#'+wid),play=svg.querySelector('#'+pid),grad=svg.querySelector('#'+gid);
+  grad.setAttribute('x1',x0);grad.setAttribute('x2',x0+totalW);
+  const bars=[],bellies=[];
   for(let i=0;i<C.barCount;i++){
    const r=el('rect');
    r.setAttribute('x',(x0+i*(C.barW+C.barGap)).toFixed(2));
@@ -131,93 +137,46 @@ let logoBoost=0;
    r.setAttribute('rx',C.barW/2);r.setAttribute('ry',C.barW/2);
    wave.appendChild(r);bars.push(r);
   }
-  if(C.bellyOn){
-   for(let i=0;i<C.barCount-1;i++){
-    const e=el('ellipse');
-    e.setAttribute('cx',(x0+(i+1)*(C.barW+C.barGap)-C.barGap/2).toFixed(2));
-    e.setAttribute('cy',C.midY);
-    wave.appendChild(e);bellies.push(e);
-   }
+  for(let i=0;i<C.barCount-1;i++){
+   const e=el('ellipse');
+   e.setAttribute('cx',(x0+(i+1)*(C.barW+C.barGap)-C.barGap/2).toFixed(2));
+   e.setAttribute('cy',C.midY);
+   wave.appendChild(e);bellies.push(e);
   }
-  play.setAttribute('d',roundedPlay(cx,C.midY,C.playSize,C.playRound));
+  play.setAttribute('d',roundedPlay(160,C.midY,C.playSize,C.playRound));
+  return {bars,bellies};
  }
- function easeOrganic(u){return Math.sin(u)*(0.82+0.18*Math.sin(u*0.5))}
- function tick(now){
+ const instances=[
+  mountBrand($('brand'),'brand'),
+  mountBrand($('miniBrand'),'miniBrand'),
+  mountBrand($('aboutBrand'),'aboutBrand')
+ ].filter(Boolean);
+ const t0=performance.now();
+ const ease=u=>Math.sin(u)*(0.82+0.18*Math.sin(u*0.5));
+ (function tick(now){
   if(logoBoost>0)logoBoost*=.94;
-  const t=(now-t0)/1000;
+  const t=(now-t0)/1000,hMax=Math.max(...C.heights);
   const pump=1+Math.min(0.45,logoBoost*0.07);
-  const bases=baseHeights();
-  const hMax=Math.max(...bases);
-  const heights=[];
-  for(let i=0;i<bars.length;i++){
-   const s=C.speed*(1+(i%3)*0.14);
-   const a=C.amp*pump*(0.6+0.4*(bases[i]/hMax));
-   const ph=i*C.phase;
-   const waveAmt=easeOrganic(t*s+ph)*a+Math.sin(t*(s*0.37)+ph*1.7)*a*C.wobble;
-   const breath=1+Math.sin(t*0.55)*C.breath;
-   let h=(bases[i]+waveAmt)*breath;
-   h=Math.max(C.barW*1.4,Math.min(160,h));
-   heights.push(h);
-   bars[i].setAttribute('y',(C.midY-h/2).toFixed(2));
-   bars[i].setAttribute('height',h.toFixed(2));
-  }
-  for(let i=0;i<bellies.length;i++){
-   const overlap=Math.min(heights[i],heights[i+1]);
-   const rx=C.bellyRx*(0.85+0.25*(overlap/hMax));
-   const ry=C.bellyRy*(0.85+0.35*(overlap/hMax));
-   const pulse=1+Math.sin(t*1.2+i*0.85)*C.bellyPulse;
-   bellies[i].setAttribute('rx',(rx*pulse).toFixed(2));
-   bellies[i].setAttribute('ry',(ry*pulse).toFixed(2));
-   bellies[i].setAttribute('cy',(C.midY+Math.sin(t*0.75+i)*C.bellyDrift*0.4).toFixed(2));
+  for(const inst of instances){
+   const {bars,bellies}=inst,heights=[];
+   for(let i=0;i<bars.length;i++){
+    const s=C.speed*(1+(i%3)*0.14),a=C.amp*pump*(0.6+0.4*(C.heights[i]/hMax)),ph=i*C.phase;
+    let h=(C.heights[i]+ease(t*s+ph)*a+Math.sin(t*s*0.37+ph*1.7)*a*C.wobble)*(1+Math.sin(t*0.55)*C.breath);
+    h=Math.max(C.barW*1.4,Math.min(160,h));heights.push(h);
+    bars[i].setAttribute('y',(C.midY-h/2).toFixed(2));
+    bars[i].setAttribute('height',h.toFixed(2));
+   }
+   for(let i=0;i<bellies.length;i++){
+    const overlap=Math.min(heights[i],heights[i+1]),pulse=1+Math.sin(t*1.2+i*0.85)*C.bellyPulse;
+    bellies[i].setAttribute('rx',(C.bellyRx*(0.85+0.25*(overlap/hMax))*pulse).toFixed(2));
+    bellies[i].setAttribute('ry',(C.bellyRy*(0.85+0.35*(overlap/hMax))*pulse).toFixed(2));
+    bellies[i].setAttribute('cy',(C.midY+Math.sin(t*0.75+i)*C.bellyDrift*0.4).toFixed(2));
+   }
   }
   requestAnimationFrame(tick);
- }
- function paintStaticMark(host){
-  if(!host||host.dataset.ready)return;
-  const svg=el('svg');
-  svg.setAttribute('viewBox','70 40 180 160');
-  svg.innerHTML=`<defs>
-   <linearGradient id="aboutGrad" gradientUnits="userSpaceOnUse" x1="86" y1="0" x2="234" y2="0">
-    <stop offset="0%" stop-color="#5B2BFF"/><stop offset="16%" stop-color="#C12BFF"/>
-    <stop offset="56%" stop-color="#FF2D7A"/><stop offset="89%" stop-color="#FF7A18"/>
-    <stop offset="100%" stop-color="#FFD000"/>
-   </linearGradient>
-   <filter id="aboutGoo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-    <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="blur"/>
-    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/>
-   </filter></defs>
-   <g filter="url(#aboutGoo)" fill="url(#aboutGrad)" id="aboutWave"></g>
-   <path id="aboutPlay" fill="#fff"/>`;
-  host.appendChild(svg);
-  const g=svg.querySelector('#aboutWave');
-  const {x0,cx}=layoutX0();
-  const bases=baseHeights();
-  const hMax=Math.max(...bases);
-  for(let i=0;i<C.barCount;i++){
-   const h=bases[i];
-   const r=el('rect');
-   r.setAttribute('x',(x0+i*(C.barW+C.barGap)).toFixed(1));
-   r.setAttribute('y',(C.midY-h/2).toFixed(1));
-   r.setAttribute('width',C.barW);r.setAttribute('height',h.toFixed(1));
-   r.setAttribute('rx',C.barW/2);r.setAttribute('ry',C.barW/2);
-   g.appendChild(r);
-   if(i<C.barCount-1){
-    const e=el('ellipse');
-    const overlap=Math.min(bases[i],bases[i+1]);
-    e.setAttribute('cx',(x0+(i+1)*(C.barW+C.barGap)-C.barGap/2).toFixed(1));
-    e.setAttribute('cy',C.midY);
-    e.setAttribute('rx',(C.bellyRx*(0.85+0.25*(overlap/hMax))).toFixed(1));
-    e.setAttribute('ry',(C.bellyRy*(0.85+0.35*(overlap/hMax))).toFixed(1));
-    g.appendChild(e);
-   }
-  }
-  svg.querySelector('#aboutPlay').setAttribute('d',roundedPlay(cx,C.midY,C.playSize,C.playRound));
-  host.dataset.ready='1';
- }
- build();
- requestAnimationFrame(tick);
- logo.addEventListener('click',ev=>{ev.stopPropagation();toggleOver()});
- window.radiofyMountAboutBrand=()=>paintStaticMark($('aboutBrand'));
+ })(t0);
+ const logo=$('logo');
+ if(logo)logo.addEventListener('click',ev=>{ev.stopPropagation();toggleOver()});
 })();
 
 // Sintonía: estático radio en la tapa (partículas del skin). Sin spin en Cambiar, sin gradiente, sin fuegos.
@@ -290,17 +249,16 @@ function playStatic(){
 
 const dial=$('dial'),sc=$('sc'),nd=$('nd');let DW=0;
 function clampFreq(f){return Math.max(88,Math.min(108,Math.round(f*10)/10))}
-function freqFromX(x){const r=dial.getBoundingClientRect(),pad=22,w=Math.max(1,DW-44);return clampFreq(88+((x-r.left-pad)/w)*20)}
-const fx=f=>22+(f-88)/20*(DW-44);
-function drawDial(){DW=dial.clientWidth||312;const pad=22,w=DW-pad*2,H=dial.clientHeight||52;let h='';
- // Escala ticks al alto real del dial (studio es bajo; neon/classic más altos)
- const top=Math.max(3,Math.round(H*0.14));
- const botMj=Math.max(top+6,Math.round(H*(curSkin==='studio'?0.62:0.48)));
- const botMid=Math.max(top+4,Math.round(H*(curSkin==='studio'?0.52:0.42)));
- const botSm=Math.max(top+3,Math.round(H*(curSkin==='studio'?0.44:0.36)));
- const ty=H-Math.max(4,Math.round(H*0.12));
- const step=curSkin==='studio'?1:0.5; // LCD denser majors, fewer micro-ticks
- for(let f=88;f<=108.001;f+=step){const x=pad+(f-88)/20*w,mj=f%4==0,mid=Math.abs(f%1)<0.01;
+function freqFromX(x){const r=dial.getBoundingClientRect(),pad=14,w=Math.max(1,DW-28);return clampFreq(88+((x-r.left-pad)/w)*20)}
+const fx=f=>14+(f-88)/20*(DW-28);
+function drawDial(){DW=dial.clientWidth||312;const pad=14,w=DW-pad*2,H=dial.clientHeight||36;let h='';
+ const top=Math.max(2,Math.round(H*0.1));
+ const botMj=Math.max(top+6,Math.round(H*(curSkin==='studio'?0.55:0.42)));
+ const botMid=Math.max(top+4,Math.round(H*(curSkin==='studio'?0.46:0.34)));
+ const botSm=Math.max(top+3,Math.round(H*(curSkin==='studio'?0.4:0.26)));
+ const ty=H-Math.max(4,Math.round(H*0.14));
+ const step=curSkin==='studio'?1:0.5;
+ for(let f=88;f<=108.001;f+=step){const x=pad+(f-88)/20*w,mj=Math.abs(f%4)<0.01,mid=Math.abs(f%1)<0.01;
   if(curSkin==='studio'&&!mid)continue;
   h+=`<line class="${mj?'mj':''}" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${top}" y2="${mj?botMj:mid?botMid:botSm}"/>`;
   if(mj)h+=`<text x="${x.toFixed(1)}" y="${ty}">${f%1?f.toFixed(1):f}</text>`}
@@ -488,8 +446,9 @@ function setPlaying(on){document.body.classList.toggle('playing',!!on)}
 
 function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  if(s.sp=='err'){meta('Spotify no responde',s.msg||'Inténtalo de nuevo');setPlaying(false);return}
- // Durante sintonía el poll mete temas a medias → carátula incorrecta y luego la buena.
+ // Durante sintonía / tapa locked el poll no pisa con otra canción.
  if(!instant&&(busy||phase==='tuning'||dialTravel))return;
+ if(!instant&&coversLocked&&s.id&&lastId&&s.id!==lastId)return;
  if(!s.id){
   if(busy||dialTravel||phase==='tuning'||lastId)return;
   meta('Sin reproducción','Pulsa Cambiar para sintonizar');art('');prog(0,0);durSec=0;setPlaying(false);return
@@ -497,13 +456,13 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  durSec=(s.dur||0)/1000;const pos=s.pos||0,same=s.id==lastId,playing=s.st=='playing';
  setPlaying(playing);
  const smooth=!instant&&same&&playing&&lastPos>=0&&pos>=lastPos&&pos-lastPos<2.5;
- if(!same||s.force){
-  meta(s.name||'',s.artist||'');
-  if(s.art&&!same){rememberArt(s.art);art(s.art,true)}
-  else if(s.art&&!curArt){rememberArt(s.art);art(s.art,true)}
- }else if(!busy&&!dialTravel){
+ if(same){
+  if(coversLocked)coversLocked=false;
   meta(s.name||'',s.artist||'');
   if(s.art&&!curArt)art(s.art,!!instant);
+ }else if(!coversLocked){
+  meta(s.name||'',s.artist||'');
+  if(s.art){rememberArt(s.art);art(s.art,true)}
  }
  if(smooth)prog(Math.min(durSec,pos+1),durSec,true);else prog(pos,durSec,false);
  lastId=s.id;lastPos=pos}
@@ -571,6 +530,7 @@ window.onNative=function(m){
   if(Array.isArray(m.items)&&m.items.length){pls=m.items;plErr=m.err||''}
   else if(pls==null){pls=Array.isArray(m.items)?m.items:[];plErr=m.err||''}
   else if(m.err)plErr=m.err;
+  paintPlist();
   if(menu.classList.contains('on')&&mode=='src')renderMenu()
  }
  else if(m.t=='devices'){showDevices(Array.isArray(m.items)?m.items:[],!!m.pick,m.err)}
@@ -604,6 +564,10 @@ $('cam').onclick=()=>doCambiar();
 $('ini').onclick=()=>doInicio();
 $('miniCam').onclick=ev=>{ev.stopPropagation();doCambiar()};
 $('miniIni').onclick=ev=>{ev.stopPropagation();doInicio()};
+function expandFromMini(ev){if(ev)ev.stopPropagation();post({a:'overscreen',on:false})}
+$('miniLogo')&&($('miniLogo').onclick=expandFromMini);
+$('miniArtHit')&&($('miniArtHit').onclick=expandFromMini);
+$('miniInfoHit')&&($('miniInfoHit').onclick=expandFromMini);
 $('ov').onclick=ev=>{ev.stopPropagation();toggleOver()};
 $('resetMem').onclick=ev=>{
  ev.stopPropagation();
@@ -613,7 +577,6 @@ $('resetMem').onclick=ev=>{
 };
 function showAbout(m){
  const a=$('about');if(!a)return;
- try{if(window.radiofyMountAboutBrand)window.radiofyMountAboutBrand()}catch(e){}
  if(m&&m.ver)$('aboutVer').textContent=m.ver;
  a.hidden=false;
 }
@@ -632,7 +595,36 @@ function paintSrc(){
  const n=st.cur=='liked'?'Liked Songs':(st.curName||'Playlist');
  $('srcN').textContent=n;
  const h=$('hdrPl');if(h)h.textContent=n;
+ paintPlist();
 }
+function paintPlist(){
+ const box=$('plist');if(!box)return;
+ let h='<div class="plist-title">Mis radios</div>';
+ const likedOn=st.cur==='liked';
+ h+=`<button type="button" class="mi${likedOn?' on':''}" data-u="liked" data-n="Liked Songs"><div class="thumb"></div><div><div class="nm">Liked Songs</div><div class="cnt">Spotify</div></div><span class="st">${likedOn?'en aire':'usar'}</span></button>`;
+ if(pls==null)h+='<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">Cargando…</div>';
+ else{
+  const list=pls.filter(p=>p.own!==false);
+  h+=list.map(p=>{
+   const on=st.cur===p.id;
+   const art=p.art?`<img alt="" src="${esc(p.art)}">`:'';
+   return `<button type="button" class="mi${on?' on':''}" data-u="${esc(p.id)}" data-n="${esc(p.name)}"><div class="thumb">${art}</div><div><div class="nm">${esc(p.name)}</div><div class="cnt">${p.n!=null?esc(String(p.n))+' · ':''}Spotify</div></div><span class="st">${on?'en aire':'usar'}</span></button>`;
+  }).join('');
+  if(!list.length)h+=`<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">${esc(plErr||'No hay playlists.')}</div>`;
+ }
+ box.innerHTML=h;
+}
+$('plist')&&$('plist').addEventListener('click',ev=>{
+ const b=ev.target.closest('.mi');if(!b||!b.dataset.u)return;
+ const next=b.dataset.u,name=b.dataset.n||'Playlist',changed=next!==st.cur;
+ st.cur=next;st.curName=name;paintSrc();
+ if(changed&&st.auth){
+  busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
+  arts=[];primedArt='';landingArt='';coversLocked=false;art('');syncMini('');
+  armTuneWatch();
+  post({a:'setSource',cur:next,curName:name});
+ }else save();
+});
 
 let dialPtr=0,dialMoved=false,dialTuneSent=false;
 function onDialDown(ev){

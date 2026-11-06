@@ -477,26 +477,27 @@ body.over[data-skin="studio"] .mini-hz{color:#3dffb5}
 [data-skin="onair"] .bounce{position:absolute;inset:0;pointer-events:none}
 [data-skin="onair"] .bounce-velvet{
   background:
-    radial-gradient(ellipse 90% 70% at 80% 8%,rgba(255,30,50,.22),transparent 55%),
-    radial-gradient(ellipse 70% 50% at 12% 28%,rgba(200,15,40,.16),transparent 50%);
+    radial-gradient(ellipse 90% 70% at 80% 8%,rgba(255,30,50,.12),transparent 55%),
+    radial-gradient(ellipse 70% 50% at 12% 28%,rgba(200,15,40,.1),transparent 50%);
   animation:velvetBounce 3.8s ease-in-out infinite;
 }
 [data-skin="onair"] .bounce-metal{
-  background:linear-gradient(122deg,transparent 30%,rgba(255,160,170,.14) 46%,transparent 62%);
+  background:linear-gradient(122deg,transparent 30%,rgba(255,160,170,.08) 46%,transparent 62%);
   animation:metalSheen 5s ease-in-out infinite;
 }
 [data-skin="onair"] .bounce-spec{
-  background:linear-gradient(100deg,transparent 42%,rgba(255,200,210,.1) 50%,transparent 58%);
+  background:linear-gradient(100deg,transparent 42%,rgba(255,200,210,.06) 50%,transparent 58%);
   animation:specSweep 6.5s ease-in-out infinite;
 }
-@keyframes velvetBounce{0%,100%{opacity:.55}50%{opacity:1}}
-@keyframes metalSheen{0%,100%{opacity:.4;transform:translateX(-2%)}50%{opacity:.85;transform:translateX(3%)}}
-@keyframes specSweep{0%,100%{opacity:.25;transform:translateX(-6%)}50%{opacity:.65;transform:translateX(8%)}}
+@keyframes velvetBounce{0%,100%{opacity:.4}50%{opacity:.7}}
+@keyframes metalSheen{0%,100%{opacity:.25;transform:translateX(-2%)}50%{opacity:.5;transform:translateX(3%)}}
+@keyframes specSweep{0%,100%{opacity:.15;transform:translateX(-6%)}50%{opacity:.35;transform:translateX(8%)}}
 [data-skin="onair"] .hd,
 [data-skin="onair"] .now-card,
 [data-skin="onair"] .dial,
 [data-skin="onair"] .hzr,
 [data-skin="onair"] .btns,
+[data-skin="onair"] .plist,
 [data-skin="onair"] .dv,
 [data-skin="onair"] .ft{position:relative;z-index:2}
 [data-skin="onair"] .hd h1{
@@ -527,14 +528,14 @@ body.over[data-skin="studio"] .mini-hz{color:#3dffb5}
   box-shadow:inset 0 0 0 .5px rgba(255,80,90,.4);
 }
 [data-skin="onair"] .cam{
-  background:radial-gradient(circle at 50% 30%,rgba(255,70,80,.35),rgba(40,8,12,.75) 70%);
-  box-shadow:0 0 0 2px rgba(255,47,63,.7),0 0 22px rgba(255,40,55,.4);
+  background:#e01e32;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.28);
 }
 [data-skin="onair"] .cam b{color:#fff}
 [data-skin="onair"] .cam svg{stroke:#fff}
 [data-skin="onair"] .pill{
-  background:rgba(255,255,255,.07);
-  box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14);
+  background:#1c1416;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.55);
 }
 [data-skin="onair"] .ft{
   background:rgba(0,0,0,.4);box-shadow:inset 0 .5px 0 rgba(255,255,255,.08);
@@ -543,7 +544,7 @@ body.over[data-skin="studio"] .mini-hz{color:#3dffb5}
 [data-skin="onair"] .studio-wave,
 [data-skin="onair"] .platter{display:none!important}
 body.over[data-skin="onair"] .mini-hz{color:#ff6b75}
-body.over[data-skin="onair"] .mb.camish{box-shadow:inset 0 0 0 .5px rgba(255,70,80,.55),0 0 10px rgba(255,50,70,.25)}
+body.over[data-skin="onair"] .mb.camish{background:#e01e32;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.28),0 0 10px rgba(255,50,70,.25)}
 
 body.over[data-skin="neon"] .mini-hz{color:#3ee6ff}
 body.over[data-skin="neon"] .mb.camish{box-shadow:inset 0 0 0 .5px rgba(62,230,255,.5),0 0 10px rgba(62,230,255,.25)}
