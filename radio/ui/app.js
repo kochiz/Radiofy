@@ -606,7 +606,8 @@ function paintPlist(){
   h+=list.map(p=>{
    const on=st.cur===p.id;
    const art=p.art?`<img alt="" src="${esc(p.art)}">`:'';
-   return `<button type="button" class="mi${on?' on':''}" data-u="${esc(p.id)}" data-n="${esc(p.name)}"><div class="thumb">${art}</div><div class="txt"><div class="nm">${esc(p.name)}</div><div class="cnt">${p.n!=null?esc(String(p.n))+' · ':''}Spotify</div></div><span class="st">${on?'en aire':'usar'}</span></button>`;
+   const n=Number(p.n);const cnt=(Number.isFinite(n)&&n>0)?(esc(String(n))+' · '):'';
+   return `<button type="button" class="mi${on?' on':''}" data-u="${esc(p.id)}" data-n="${esc(p.name)}"><div class="thumb">${art}</div><div class="txt"><div class="nm">${esc(p.name)}</div><div class="cnt">${cnt}Spotify</div></div><span class="st">${on?'en aire':'usar'}</span></button>`;
   }).join('');
   if(!list.length)h+=`<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">${esc(plErr||'No hay playlists.')}</div>`;
  }

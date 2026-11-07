@@ -1737,12 +1737,15 @@ static double ASFloat(NSString *s) {
     if ([pid rangeOfCharacterFromSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]].location != NSNotFound) return;
     NSMutableArray *cache = [[self.store[@"playlistsCache"] isKindOfClass:[NSArray class]] ? self.store[@"playlistsCache"] : @[] mutableCopy];
     NSMutableArray *next = [NSMutableArray array];
-    NSString *keepArt = nil;
+    NSDictionary *prev = nil;
     for (id p in cache) {
-        if ([p isKindOfClass:[NSDictionary class]] && [JS(p, @"id") isEqualToString:pid]) { keepArt = JS(p, @"art"); break; }
+        if ([p isKindOfClass:[NSDictionary class]] && [JS(p, @"id") isEqualToString:pid]) { prev = p; break; }
     }
-    NSMutableDictionary *head = [@{@"id": pid, @"name": name.length ? name : @"Playlist", @"n": @0, @"own": @YES} mutableCopy];
-    if (keepArt.length) head[@"art"] = keepArt;
+    NSMutableDictionary *head = [@{@"id": pid, @"name": name.length ? name : @"Playlist", @"own": @YES} mutableCopy];
+    if (prev[@"n"] != nil) head[@"n"] = prev[@"n"];
+    else head[@"n"] = @0;
+    if (JS(prev, @"art").length) head[@"art"] = JS(prev, @"art");
+    if (prev[@"mine"] != nil) head[@"mine"] = prev[@"mine"];
     [next addObject:head];
     for (id p in cache) {
         if (![p isKindOfClass:[NSDictionary class]] || !JS(p, @"id")) continue;
@@ -1865,11 +1868,13 @@ static double ASFloat(NSString *s) {
         for (id p in items) {
             if (![p isKindOfClass:[NSDictionary class]] || !JS(p, @"id")) continue;
             BOOL mine = !self.meId.length || [JS(JOk(p, @"owner"), @"id") isEqualToString:self.meId] || [JOk(p, @"collaborative") boolValue];
-            id cnt = JOk(JOk(p, @"items"), @"total") ?: JOk(JOk(p, @"tracks"), @"total") ?: @0;
+            // Web API reciente: items.total; legacy: tracks.total
+            id bag = JOk(p, @"items") ?: JOk(p, @"tracks");
+            NSNumber *cnt = @([JOk(bag, @"total") integerValue]);
             NSString *art = @"";
             id images = JOk(p, @"images");
             if ([images isKindOfClass:[NSArray class]] && [(NSArray *)images count]) {
-                // Spotify: [0]=grande … último=chico; para thumb usamos el más chico disponible
+                // Spotify: [0]=grande; último=chico (thumb)
                 art = JS([(NSArray *)images lastObject], @"url") ?: JS([(NSArray *)images firstObject], @"url") ?: @"";
             }
             NSMutableDictionary *row = [@{@"id": JS(p, @"id"), @"name": JS(p, @"name") ?: @"Playlist", @"n": cnt, @"own": @YES, @"mine": @(mine)} mutableCopy];
@@ -2399,13 +2404,19 @@ static double ASFloat(NSString *s) {
                 self.playlists = have;
                 [self send:@{@"t": @"playlists", @"items": have}];
             }
-            BOOL missingArt = NO;
+            BOOL stale = NO;
             for (id p in have) {
                 if (![p isKindOfClass:[NSDictionary class]]) continue;
-                if (!JS(p, @"art").length) { missingArt = YES; break; }
+                if (!JS(p, @"art").length) { stale = YES; break; }
+                // n:0 tras elegir playlist (bug rememberPlaylistId) → refetch
+                if (![self.store[@"healedPlaylistCounts35"] boolValue] && [JOk(p, @"n") integerValue] <= 0) { stale = YES; break; }
             }
-            if (have.count >= 8 && !missingArt) return;
+            if (have.count >= 8 && !stale) return;
             [self loadPlaylists:YES];
+            if (![self.store[@"healedPlaylistCounts35"] boolValue]) {
+                self.store[@"healedPlaylistCounts35"] = @YES;
+                [self saveStore];
+            }
         });
     } else if ([a isEqualToString:@"save"]) {
         if (b[@"cur"]) self.store[@"cur"] = b[@"cur"];
