@@ -497,9 +497,11 @@ body.over[data-skin="studio"] .mini-hz{color:#3dffb5}
 [data-skin="onair"] .dial,
 [data-skin="onair"] .hzr,
 [data-skin="onair"] .btns,
+[data-skin="onair"] .plist-label,
 [data-skin="onair"] .plist,
 [data-skin="onair"] .dv,
 [data-skin="onair"] .ft{position:relative;z-index:2}
+[data-skin="onair"] .plist-label{color:rgba(255,190,198,.82)}
 [data-skin="onair"] .hd h1{
   font:800 18px/1 "Avenir Next Condensed","Avenir Next",sans-serif;
   letter-spacing:.1em;text-transform:uppercase;color:#fff;

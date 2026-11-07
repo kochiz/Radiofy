@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radiofy — logo gooey configurator</title>
+<style>
+  :root {
+    --ink: #12161f;
+    --muted: #6b7280;
+    --line: rgba(18,22,31,.12);
+    --panel: #ffffff;
+    --paper: #f3f1ed;
+    --accent: #ff2d7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    min-height: 100vh;
+  }
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 52vh auto; }
+  }
+
+  .preview {
+    position: relative;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(800px 420px at 50% 42%, #fff 0%, var(--paper) 60%, #e8e4dc 100%);
+    overflow: hidden;
+  }
+  .preview.dark {
+    background:
+      radial-gradient(800px 420px at 50% 42%, #1a2030 0%, #0e121a 65%, #090c12 100%);
+  }
+  .preview.dark .word { fill: #f5f5f7; }
+  .canvas-wrap {
+    width: min(520px, 88%);
+    aspect-ratio: 320 / 280;
+  }
+  .canvas-wrap svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    display: block;
+  }
+  .preview-meta {
+    position: absolute;
+    left: 20px;
+    bottom: 16px;
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .preview.dark .preview-meta { color: rgba(255,255,255,.4); }
+
+  .panel {
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    overflow: auto;
+    max-height: 100vh;
+    padding: 18px 16px 28px;
+  }
+  @media (max-width: 900px) {
+    .panel { border-left: 0; border-top: 1px solid var(--line); max-height: none; }
+  }
+  .panel h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    margin-bottom: 4px;
+  }
+  .panel .sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .tabs button {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fafafa;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font: 600 11px/1 "Avenir Next", sans-serif;
+    letter-spacing: .03em;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .tabs button.on {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .section { display: none; }
+  .section.on { display: block; }
+  .section h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 14px 0 8px;
+  }
+  .ctrl {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .ctrl label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .ctrl .val {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    text-align: right;
+  }
+  .ctrl input[type="range"] {
+    grid-column: 1 / -1;
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .ctrl input[type="color"] {
+    width: 36px;
+    height: 24px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+  }
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 8px 0;
+  }
+  .check input { accent-color: var(--accent); }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .actions button, .ghost {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font: 600 12px/1 "Avenir Next", sans-serif;
+    cursor: pointer;
+  }
+  .actions button.primary {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  textarea#exportOut {
+    width: 100%;
+    min-height: 120px;
+    margin-top: 10px;
+    font: 11px/1.35 ui-monospace, Menlo, monospace;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    resize: vertical;
+    background: #fafafa;
+  }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .presets button {
+    appearance: none;
+    border: 1px dashed var(--line);
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font: 600 11px/1 "Avenir Next", sans-serif;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <main class="preview" id="preview">
+    <div class="canvas-wrap">
+      <svg id="logo" viewBox="0 0 320 280" role="img" aria-label="Radiofy">
+        <defs>
+          <linearGradient id="waveGrad" gradientUnits="userSpaceOnUse" x1="86" y1="0" x2="234" y2="0">
+            <stop id="g0" offset="0%" stop-color="#5B2BFF"/>
+            <stop id="g1" offset="28%" stop-color="#C12BFF"/>
+            <stop id="g2" offset="52%" stop-color="#FF2D7A"/>
+            <stop id="g3" offset="78%" stop-color="#FF7A18"/>
+            <stop id="g4" offset="100%" stop-color="#FFD000"/>
+          </linearGradient>
+          <filter id="goo" x="-80%" y="-80%" width="260%" height="260%" color-interpolation-filters="sRGB">
+            <feGaussianBlur id="gooBlur" in="SourceGraphic" stdDeviation="7.5" result="blur"/>
+            <feColorMatrix id="gooMatrix" in="blur" mode="matrix" result="goo"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/>
+          </filter>
+          <filter id="playSoft" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow id="playShadow" dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity=".12"/>
+          </filter>
+        </defs>
+        <g id="wave" filter="url(#goo)" fill="url(#waveGrad)"></g>
+        <path id="play" fill="#ffffff" filter="url(#playSoft)"/>
+        <text id="word" class="word" x="160" y="236" text-anchor="middle"
+          font-family="Avenir Next, Futura, Segoe UI, sans-serif"
+          font-weight="700" font-size="36" letter-spacing="3.5"
+          fill="#0b1220">RADIOFY</text>
+      </svg>
+    </div>
+    <div class="preview-meta" id="fpsMeta">live configurator</div>
+  </main>
+
+  <aside class="panel">
+    <h1>Logo gooey · live</h1>
+    <p class="sub">Ajustá hasta que la guatita, el gradiente y el play se sientan bien. Si el goo no da, los presets “sin goo” / “puentes” ayudan a comparar.</p>
+
+    <div class="presets" id="presets"></div>
+
+    <div class="tabs" id="tabs">
+      <button type="button" data-tab="layout" class="on">Layout</button>
+      <button type="button" data-tab="goo">Goo</button>
+      <button type="button" data-tab="belly">Guatitas</button>
+      <button type="button" data-tab="anim">Anim</button>
+      <button type="button" data-tab="grad">Gradiente</button>
+      <button type="button" data-tab="play">Play</button>
+      <button type="button" data-tab="export">Export</button>
+    </div>
+
+    <!-- LAYOUT -->
+    <div class="section on" data-section="layout">
+      <h2>Barras</h2>
+      <div class="ctrl"><label>Cantidad</label><span class="val" data-for="barCount"></span>
+        <input type="range" id="barCount" min="5" max="11" step="2" value="7"></div>
+      <div class="ctrl"><label>Ancho barra</label><span class="val" data-for="barW"></span>
+        <input type="range" id="barW" min="8" max="28" step="0.5" value="18"></div>
+      <div class="ctrl"><label>Gap entre barras</label><span class="val" data-for="barGap"></span>
+        <input type="range" id="barGap" min="0" max="16" step="0.5" value="4"></div>
+      <div class="ctrl"><label>Altura centro</label><span class="val" data-for="hCenter"></span>
+        <input type="range" id="hCenter" min="40" max="160" step="1" value="118"></div>
+      <div class="ctrl"><label>Altura extremo</label><span class="val" data-for="hEdge"></span>
+        <input type="range" id="hEdge" min="16" max="100" step="1" value="42"></div>
+      <div class="ctrl"><label>Curva silueta</label><span class="val" data-for="silhouette"></span>
+        <input type="range" id="silhouette" min="0.4" max="2.2" step="0.05" value="1.15"></div>
+      <div class="ctrl"><label>Centro Y</label><span class="val" data-for="midY"></span>
+        <input type="range" id="midY" min="80" max="150" step="1" value="120"></div>
+      <label class="check"><input type="checkbox" id="darkBg"> Fondo oscuro</label>
+      <label class="check"><input type="checkbox" id="showWord" checked> Mostrar RADIOFY</label>
+    </div>
+
+    <!-- GOO -->
+    <div class="section" data-section="goo">
+      <h2>Metaball / goo</h2>
+      <label class="check"><input type="checkbox" id="gooOn" checked> Activar filtro goo</label>
+      <div class="ctrl"><label>Blur (stdDeviation)</label><span class="val" data-for="gooBlur"></span>
+        <input type="range" id="gooBlurAmt" min="0" max="18" step="0.1" value="7.5"></div>
+      <div class="ctrl"><label>Contraste alpha</label><span class="val" data-for="gooContrast"></span>
+        <input type="range" id="gooContrast" min="8" max="40" step="0.5" value="20"></div>
+      <div class="ctrl"><label>Umbral (offset)</label><span class="val" data-for="gooThresh"></span>
+        <input type="range" id="gooThresh" min="-20" max="0" step="0.5" value="-8"></div>
+      <p class="sub" style="margin-top:4px">Más blur + umbral menos negativo = más unión / guatita. Si se ve borroso: subí contraste o bajá blur.</p>
+    </div>
+
+    <!-- BELLY -->
+    <div class="section" data-section="belly">
+      <h2>Puentes (guatitas)</h2>
+      <label class="check"><input type="checkbox" id="bellyOn" checked> Dibujar elipses puente</label>
+      <div class="ctrl"><label>rx base</label><span class="val" data-for="bellyRx"></span>
+        <input type="range" id="bellyRx" min="0" max="16" step="0.1" value="6"></div>
+      <div class="ctrl"><label>ry base</label><span class="val" data-for="bellyRy"></span>
+        <input type="range" id="bellyRy" min="0" max="28" step="0.1" value="11"></div>
+      <div class="ctrl"><label>Escala por solape</label><span class="val" data-for="bellyScale"></span>
+        <input type="range" id="bellyScale" min="0" max="2" step="0.05" value="1"></div>
+      <div class="ctrl"><label>Pulso</label><span class="val" data-for="bellyPulse"></span>
+        <input type="range" id="bellyPulse" min="0" max="0.4" step="0.01" value="0.12"></div>
+      <div class="ctrl"><label>Drift vertical</label><span class="val" data-for="bellyDrift"></span>
+        <input type="range" id="bellyDrift" min="0" max="8" step="0.1" value="2.5"></div>
+      <p class="sub">Las elipses refuerzan el cuello cuando el goo solo no alcanza. Probá “solo puentes” en presets.</p>
+    </div>
+
+    <!-- ANIM -->
+    <div class="section" data-section="anim">
+      <h2>Movimiento</h2>
+      <div class="ctrl"><label>Modo</label><span class="val" id="modeLabel">suave</span>
+        <input type="range" id="mode" min="0" max="2" step="1" value="1"></div>
+      <div class="ctrl"><label>Amplitud</label><span class="val" data-for="amp"></span>
+        <input type="range" id="amp" min="0" max="40" step="0.5" value="22"></div>
+      <div class="ctrl"><label>Velocidad</label><span class="val" data-for="speed"></span>
+        <input type="range" id="speed" min="0.2" max="3" step="0.05" value="1"></div>
+      <div class="ctrl"><label>Desfase entre barras</label><span class="val" data-for="phase"></span>
+        <input type="range" id="phase" min="0" max="1.5" step="0.02" value="0.68"></div>
+      <div class="ctrl"><label>Wobble extra</label><span class="val" data-for="wobble"></span>
+        <input type="range" id="wobble" min="0" max="1" step="0.02" value="0.45"></div>
+      <div class="ctrl"><label>Respiración global</label><span class="val" data-for="breath"></span>
+        <input type="range" id="breath" min="0" max="0.15" step="0.005" value="0.045"></div>
+      <label class="check"><input type="checkbox" id="organic" checked> Easing orgánico (no seno puro)</label>
+    </div>
+
+    <!-- GRAD -->
+    <div class="section" data-section="grad">
+      <h2>Gradiente único (todo el set)</h2>
+      <div class="row2">
+        <div class="ctrl"><label>Color 1</label><input type="color" id="c0" value="#5b2bff"></div>
+        <div class="ctrl"><label>Color 2</label><input type="color" id="c1" value="#c12bff"></div>
+        <div class="ctrl"><label>Color 3</label><input type="color" id="c2" value="#ff2d7a"></div>
+        <div class="ctrl"><label>Color 4</label><input type="color" id="c3" value="#ff7a18"></div>
+        <div class="ctrl"><label>Color 5</label><input type="color" id="c4" value="#ffd000"></div>
+      </div>
+      <div class="ctrl"><label>Stop 2 %</label><span class="val" data-for="s1"></span>
+        <input type="range" id="s1" min="5" max="45" step="1" value="28"></div>
+      <div class="ctrl"><label>Stop 3 %</label><span class="val" data-for="s2"></span>
+        <input type="range" id="s2" min="30" max="70" step="1" value="52"></div>
+      <div class="ctrl"><label>Stop 4 %</label><span class="val" data-for="s3"></span>
+        <input type="range" id="s3" min="55" max="95" step="1" value="78"></div>
+    </div>
+
+    <!-- PLAY -->
+    <div class="section" data-section="play">
+      <h2>Triángulo play</h2>
+      <label class="check"><input type="checkbox" id="playOn" checked> Mostrar play</label>
+      <div class="ctrl"><label>Tamaño</label><span class="val" data-for="playSize"></span>
+        <input type="range" id="playSize" min="0.5" max="1.6" step="0.02" value="1"></div>
+      <div class="ctrl"><label>Offset X</label><span class="val" data-for="playX"></span>
+        <input type="range" id="playX" min="-30" max="30" step="0.5" value="0"></div>
+      <div class="ctrl"><label>Offset Y</label><span class="val" data-for="playY"></span>
+        <input type="range" id="playY" min="-30" max="30" step="0.5" value="0"></div>
+      <div class="ctrl"><label>Redondeo esquinas</label><span class="val" data-for="playRound"></span>
+        <input type="range" id="playRound" min="0" max="14" step="0.2" value="5.5"></div>
+      <div class="ctrl"><label>Color play</label>
+        <input type="color" id="playColor" value="#ffffff"></div>
+      <div class="ctrl"><label>Sombra</label><span class="val" data-for="playSh"></span>
+        <input type="range" id="playSh" min="0" max="4" step="0.1" value="1.2"></div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="section" data-section="export">
+      <h2>Estado actual</h2>
+      <div class="actions">
+        <button type="button" class="primary" id="btnCopy">Copiar JSON</button>
+        <button type="button" id="btnDump">Actualizar</button>
+        <button type="button" id="btnReset">Reset</button>
+      </div>
+      <textarea id="exportOut" readonly></textarea>
+      <p class="sub" style="margin-top:8px">Cuando encuentres el look, pegame el JSON o decime “usa este preset”.</p>
+    </div>
+  </aside>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const wave = $('wave');
+  const playEl = $('play');
+  const grad = $('waveGrad');
+  const preview = $('preview');
+  const MODE_NAMES = ['quieto', 'suave', 'pump'];
+
+  // Look elegido (JSON del configurador)
+  const DEFAULTS = {
+    barCount: 11, barW: 8, barGap: 3.5, hCenter: 129, hEdge: 27, silhouette: 1, midY: 120,
+    darkBg: false, showWord: true,
+    gooOn: true, gooBlurAmt: 2.4, gooContrast: 11.5, gooThresh: -5.5,
+    bellyOn: true, bellyRx: 11.3, bellyRy: 8.1, bellyScale: 1.65, bellyPulse: 0.23, bellyDrift: 5.9,
+    mode: 1, amp: 18.5, speed: 1.85, phase: 0.7, wobble: 0.46, breath: 0.045, organic: true,
+    c0: '#5b2bff', c1: '#c12bff', c2: '#ff2d7a', c3: '#ff7a18', c4: '#ffd000',
+    s1: 16, s2: 56, s3: 89,
+    playOn: true, playSize: 0.76, playX: 0, playY: 0, playRound: 9.8, playColor: '#ffffff', playSh: 1.8,
+  };
+
+  const PRESETS = {
+    'Tu look': { ...DEFAULTS },
+    'Logo cerca': { barGap: 3.5, barW: 17, gooBlurAmt: 8, gooContrast: 19, gooThresh: -7.5, bellyOn: true, bellyRx: 6.5, bellyRy: 12, mode: 1 },
+    'Guatita fuerte': { barGap: 2, gooBlurAmt: 10, gooContrast: 17, gooThresh: -6, bellyRx: 9, bellyRy: 16, bellyScale: 1.3, mode: 2 },
+    'Solo goo': { bellyOn: false, gooOn: true, gooBlurAmt: 9, gooContrast: 18, gooThresh: -7, barGap: 2.5 },
+    'Solo puentes': { gooOn: false, bellyOn: true, bellyRx: 8, bellyRy: 14, barGap: 5 },
+    'Sin fusión': { gooOn: false, bellyOn: false, barGap: 6 },
+    'Pump radio': { mode: 2, amp: 30, speed: 1.25, bellyPulse: 0.2, breath: 0.07 },
+  };
+
+  function cfg() {
+    const num = id => +$(id).value;
+    const chk = id => $(id).checked;
+    return {
+      barCount: num('barCount'), barW: num('barW'), barGap: num('barGap'),
+      hCenter: num('hCenter'), hEdge: num('hEdge'), silhouette: num('silhouette'), midY: num('midY'),
+      darkBg: chk('darkBg'), showWord: chk('showWord'),
+      gooOn: chk('gooOn'), gooBlurAmt: num('gooBlurAmt'), gooContrast: num('gooContrast'), gooThresh: num('gooThresh'),
+      bellyOn: chk('bellyOn'), bellyRx: num('bellyRx'), bellyRy: num('bellyRy'),
+      bellyScale: num('bellyScale'), bellyPulse: num('bellyPulse'), bellyDrift: num('bellyDrift'),
+      mode: num('mode'), amp: num('amp'), speed: num('speed'), phase: num('phase'),
+      wobble: num('wobble'), breath: num('breath'), organic: chk('organic'),
+      c0: $('c0').value, c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, c4: $('c4').value,
+      s1: num('s1'), s2: num('s2'), s3: num('s3'),
+      playOn: chk('playOn'), playSize: num('playSize'), playX: num('playX'), playY: num('playY'),
+      playRound: num('playRound'), playColor: $('playColor').value, playSh: num('playSh'),
+    };
+  }
+
+  function applyPreset(p) {
+    Object.entries(p).forEach(([k, v]) => {
+      const el = $(k === 'gooBlurAmt' ? 'gooBlurAmt' : k);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else el.value = v;
+    });
+    rebuild();
+    syncLabels();
+    dump();
+  }
+
+  function setDefaults() {
+    Object.entries(DEFAULTS).forEach(([k, v]) => {
+      const el = $(k);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else el.value = v;
+    });
+  }
+
+  // ---- geometry ----
+  let bars = [], bellies = [];
+  let layoutKey = '';
+
+  function baseHeights(c) {
+    const n = c.barCount;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const u = n === 1 ? 0 : (i / (n - 1)) * 2 - 1; // -1..1
+      const t = 1 - Math.pow(Math.abs(u), c.silhouette);
+      out.push(c.hEdge + (c.hCenter - c.hEdge) * t);
+    }
+    return out;
+  }
+
+  function rebuild() {
+    const c = cfg();
+    const key = [c.barCount, c.barW, c.barGap].join('|');
+    // always rebuild DOM when count/size/gap change
+    const totalW = c.barCount * c.barW + (c.barCount - 1) * c.barGap;
+    const x0 = 160 - totalW / 2;
+
+    wave.innerHTML = '';
+    bars = [];
+    bellies = [];
+    for (let i = 0; i < c.barCount; i++) {
+      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r.setAttribute('x', (x0 + i * (c.barW + c.barGap)).toFixed(2));
+      r.setAttribute('width', c.barW);
+      r.setAttribute('rx', c.barW / 2);
+      r.setAttribute('ry', c.barW / 2);
+      r.dataset.i = i;
+      wave.appendChild(r);
+      bars.push(r);
+    }
+    if (c.bellyOn) {
+      for (let i = 0; i < c.barCount - 1; i++) {
+        const e = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        const cx = x0 + (i + 1) * (c.barW + c.barGap) - c.barGap / 2;
+        e.setAttribute('cx', cx.toFixed(2));
+        e.setAttribute('cy', c.midY);
+        e.dataset.i = i;
+        wave.appendChild(e);
+        bellies.push(e);
+      }
+    }
+
+    // gradient span = exact bar block
+    grad.setAttribute('x1', x0.toFixed(2));
+    grad.setAttribute('x2', (x0 + totalW).toFixed(2));
+
+    wave.setAttribute('filter', c.gooOn ? 'url(#goo)' : null);
+    if (!c.gooOn) wave.removeAttribute('filter');
+    else wave.setAttribute('filter', 'url(#goo)');
+
+    $('gooBlur').setAttribute('stdDeviation', c.gooBlurAmt);
+    $('gooMatrix').setAttribute('values',
+      `1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 ${c.gooContrast} ${c.gooThresh}`);
+
+    // gradient colors
+    [['g0', c.c0, '0%'], ['g1', c.c1, c.s1 + '%'], ['g2', c.c2, c.s2 + '%'],
+     ['g3', c.c3, c.s3 + '%'], ['g4', c.c4, '100%']].forEach(([id, col, off]) => {
+      const s = $(id);
+      s.setAttribute('stop-color', col);
+      s.setAttribute('offset', off);
+    });
+
+    preview.classList.toggle('dark', c.darkBg);
+    $('word').style.display = c.showWord ? '' : 'none';
+    playEl.style.display = c.playOn ? '' : 'none';
+    playEl.setAttribute('fill', c.playColor);
+    $('playShadow').setAttribute('stdDeviation', c.playSh);
+    layoutKey = key;
+    updatePlay(c);
+  }
+
+  function roundedPlayPath(size, ox, oy, round) {
+    // base triangle (pointing right), centered near 160,120
+    const cx = 160 + ox, cy = 120 + oy;
+    const w = 54 * size, h = 64 * size;
+    const x1 = cx - w * 0.42, y1 = cy - h / 2;
+    const x2 = cx - w * 0.42, y2 = cy + h / 2;
+    const x3 = cx + w * 0.55, y3 = cy;
+    const r = Math.max(0.01, Math.min(round * size, w * 0.22, h * 0.18));
+
+    // For each corner: move in along both edges by ~r, then quadratic to next
+    function corner(ax, ay, bx, by, cx2, cy2, rad) {
+      const v1x = ax - bx, v1y = ay - by;
+      const v2x = cx2 - bx, v2y = cy2 - by;
+      const L1 = Math.hypot(v1x, v1y) || 1;
+      const L2 = Math.hypot(v2x, v2y) || 1;
+      const r1 = Math.min(rad, L1 * 0.45);
+      const r2 = Math.min(rad, L2 * 0.45);
+      return {
+        p0: [bx + v1x / L1 * r1, by + v1y / L1 * r1],
+        p1: [bx + v2x / L2 * r2, by + v2y / L2 * r2],
+        c: [bx, by],
+      };
+    }
+    const A = corner(x3, y3, x1, y1, x2, y2, r); // top-left corner of vertical edge? wait: corners at x1,y1 / x2,y2 / x3,y3
+    // redefine properly per vertex order: V1 top-left, V2 bottom-left, V3 tip
+    const c1 = corner(x3, y3, x1, y1, x2, y2, r); // at V1 — neighbors tip and V2? Wrong.
+    // At vertex V: previous P, vertex V, next N
+    const cV1 = corner(x3, y3, x1, y1, x2, y2, r); // V1 between tip and V2 — wrong order for play
+    // Correct: path V1 -> V2 -> V3 -> V1
+    // V1=(x1,y1) neighbors V3 and V2
+    const k1 = corner(x3, y3, x1, y1, x2, y2, r);
+    const k2 = corner(x1, y1, x2, y2, x3, y3, r);
+    const k3 = corner(x2, y2, x3, y3, x1, y1, r);
+
+    // Start at k1.p0 (coming from tip toward V1), curve at V1 to k1.p1, line to k2.p0, etc.
+    // Actually start at end of first rounded corner leaving V1 toward V2 = k1.p1
+    return [
+      `M ${k1.p1[0].toFixed(2)} ${k1.p1[1].toFixed(2)}`,
+      `L ${k2.p0[0].toFixed(2)} ${k2.p0[1].toFixed(2)}`,
+      `Q ${k2.c[0].toFixed(2)} ${k2.c[1].toFixed(2)} ${k2.p1[0].toFixed(2)} ${k2.p1[1].toFixed(2)}`,
+      `L ${k3.p0[0].toFixed(2)} ${k3.p0[1].toFixed(2)}`,
+      `Q ${k3.c[0].toFixed(2)} ${k3.c[1].toFixed(2)} ${k3.p1[0].toFixed(2)} ${k3.p1[1].toFixed(2)}`,
+      `L ${k1.p0[0].toFixed(2)} ${k1.p0[1].toFixed(2)}`,
+      `Q ${k1.c[0].toFixed(2)} ${k1.c[1].toFixed(2)} ${k1.p1[0].toFixed(2)} ${k1.p1[1].toFixed(2)}`,
+      'Z',
+    ].join(' ');
+  }
+
+  function updatePlay(c) {
+    playEl.setAttribute('d', roundedPlayPath(c.playSize, c.playX, c.playY, c.playRound));
+  }
+
+  function easeOrganic(u, organic) {
+    if (!organic) return Math.sin(u);
+    return Math.sin(u) * (0.82 + 0.18 * Math.sin(u * 0.5));
+  }
+
+  let t0 = performance.now();
+  let frames = 0, lastFps = performance.now();
+
+  function tick(now) {
+    const c = cfg();
+    // live-update filter / colors without full rebuild when only those change
+    const needRebuild =
+      bars.length !== c.barCount ||
+      Math.abs((+bars[0]?.getAttribute('width') || 0) - c.barW) > 0.01 ||
+      bellies.length !== (c.bellyOn ? c.barCount - 1 : 0);
+    if (needRebuild) rebuild();
+    else {
+      wave.setAttribute('filter', c.gooOn ? 'url(#goo)' : '');
+      if (!c.gooOn) wave.removeAttribute('filter');
+      $('gooBlur').setAttribute('stdDeviation', c.gooBlurAmt);
+      $('gooMatrix').setAttribute('values',
+        `1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 ${c.gooContrast} ${c.gooThresh}`);
+      [['g0', c.c0, '0%'], ['g1', c.c1, c.s1 + '%'], ['g2', c.c2, c.s2 + '%'],
+       ['g3', c.c3, c.s3 + '%'], ['g4', c.c4, '100%']].forEach(([id, col, off]) => {
+        $(id).setAttribute('stop-color', col);
+        $(id).setAttribute('offset', off);
+      });
+      preview.classList.toggle('dark', c.darkBg);
+      $('word').style.display = c.showWord ? '' : 'none';
+      playEl.style.display = c.playOn ? '' : 'none';
+      playEl.setAttribute('fill', c.playColor);
+      $('playShadow').setAttribute('stdDeviation', c.playSh);
+      updatePlay(c);
+      // keep x positions in sync if gap/width changed without count
+      const totalW = c.barCount * c.barW + (c.barCount - 1) * c.barGap;
+      const x0 = 160 - totalW / 2;
+      grad.setAttribute('x1', x0.toFixed(2));
+      grad.setAttribute('x2', (x0 + totalW).toFixed(2));
+      bars.forEach((r, i) => {
+        r.setAttribute('x', (x0 + i * (c.barW + c.barGap)).toFixed(2));
+        r.setAttribute('width', c.barW);
+        r.setAttribute('rx', c.barW / 2);
+        r.setAttribute('ry', c.barW / 2);
+      });
+      bellies.forEach((e, i) => {
+        const cx = x0 + (i + 1) * (c.barW + c.barGap) - c.barGap / 2;
+        e.setAttribute('cx', cx.toFixed(2));
+      });
+    }
+
+    const t = (now - t0) / 1000;
+    const pump = c.mode === 0 ? 0 : c.mode === 2 ? 1.55 : 1;
+    const bases = baseHeights(c);
+    const heights = [];
+
+    for (let i = 0; i < bars.length; i++) {
+      const s = c.speed * (1.0 + (i % 3) * 0.17);
+      const a = c.amp * pump * (0.55 + 0.45 * (bases[i] / c.hCenter));
+      const ph = i * c.phase;
+      const waveAmt =
+        easeOrganic(t * s + ph, c.organic) * a +
+        Math.sin(t * (s * 0.37) + ph * 1.7) * a * c.wobble;
+      const breath = 1 + Math.sin(t * 0.55) * c.breath * (pump || 0.25);
+      let h = (bases[i] + waveAmt) * breath;
+      h = Math.max(c.barW, Math.min(150, h));
+      heights.push(h);
+      bars[i].setAttribute('y', (c.midY - h / 2).toFixed(2));
+      bars[i].setAttribute('height', h.toFixed(2));
+    }
+
+    if (c.bellyOn) {
+      for (let i = 0; i < bellies.length; i++) {
+        const overlap = Math.min(heights[i], heights[i + 1]);
+        const rx = c.bellyRx + (overlap / c.hCenter) * 5 * c.bellyScale * (0.55 + 0.45 * pump);
+        const ry = c.bellyRy + (overlap / c.hCenter) * 14 * c.bellyScale * (0.5 + 0.5 * pump);
+        const pulse = 1 + Math.sin(t * 1.35 + i * 0.9) * c.bellyPulse * (pump || 0.35);
+        bellies[i].setAttribute('rx', (rx * pulse).toFixed(2));
+        bellies[i].setAttribute('ry', (ry * pulse).toFixed(2));
+        bellies[i].setAttribute('cy', (c.midY + Math.sin(t * 0.8 + i) * c.bellyDrift * pump).toFixed(2));
+        bellies[i].style.display = '';
+      }
+    }
+
+    frames++;
+    if (now - lastFps > 500) {
+      const fps = Math.round(frames * 1000 / (now - lastFps));
+      frames = 0; lastFps = now;
+      $('fpsMeta').textContent = `${MODE_NAMES[c.mode]} · ${fps} fps · gap ${c.barGap} · blur ${c.gooBlurAmt}`;
+      $('modeLabel').textContent = MODE_NAMES[c.mode];
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function syncLabels() {
+    document.querySelectorAll('.val[data-for]').forEach(el => {
+      const id = el.getAttribute('data-for');
+      const map = {
+        barCount: 'barCount', barW: 'barW', barGap: 'barGap', hCenter: 'hCenter', hEdge: 'hEdge',
+        silhouette: 'silhouette', midY: 'midY', gooBlur: 'gooBlurAmt', gooContrast: 'gooContrast',
+        gooThresh: 'gooThresh', bellyRx: 'bellyRx', bellyRy: 'bellyRy', bellyScale: 'bellyScale',
+        bellyPulse: 'bellyPulse', bellyDrift: 'bellyDrift', amp: 'amp', speed: 'speed', phase: 'phase',
+        wobble: 'wobble', breath: 'breath', s1: 's1', s2: 's2', s3: 's3',
+        playSize: 'playSize', playX: 'playX', playY: 'playY', playRound: 'playRound', playSh: 'playSh',
+      };
+      const src = $(map[id] || id);
+      if (src) el.textContent = src.type === 'checkbox' ? src.checked : src.value;
+    });
+    $('modeLabel').textContent = MODE_NAMES[+$('mode').value];
+  }
+
+  function dump() {
+    $('exportOut').value = JSON.stringify(cfg(), null, 2);
+  }
+
+  // UI wiring
+  document.querySelectorAll('#tabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('on'));
+      document.querySelectorAll('.section').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      document.querySelector(`.section[data-section="${b.dataset.tab}"]`).classList.add('on');
+    });
+  });
+
+  const presetBox = $('presets');
+  Object.keys(PRESETS).forEach(name => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = name;
+    b.addEventListener('click', () => applyPreset({ ...DEFAULTS, ...PRESETS[name] }));
+    presetBox.appendChild(b);
+  });
+
+  document.querySelectorAll('.panel input').forEach(inp => {
+    inp.addEventListener('input', syncLabels);
+  });
+
+  $('btnDump').onclick = dump;
+  $('btnReset').onclick = () => { setDefaults(); rebuild(); syncLabels(); dump(); };
+  $('btnCopy').onclick = async () => {
+    dump();
+    try {
+      await navigator.clipboard.writeText($('exportOut').value);
+      $('btnCopy').textContent = 'Copiado';
+      setTimeout(() => { $('btnCopy').textContent = 'Copiar JSON'; }, 1200);
+    } catch (e) {
+      $('btnCopy').textContent = 'Seleccioná y copiá';
+    }
+  };
+
+  setDefaults();
+  rebuild();
+  syncLabels();
+  dump();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
