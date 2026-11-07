@@ -85,7 +85,6 @@ static NSImage *WaveIcon(void) {
 @property (strong) NSMutableDictionary *totals, *recent;
 @property (strong) NSMutableArray *recentUris, *arts, *recentArtists, *trackPool;
 @property (strong) NSMutableSet *blockedUris; // no reproducibles (CL / local) — no volver a play
-@property (strong) NSMutableDictionary *playlistSeeds; // id → {seed, apiOk} probe en background
 @property (copy) NSString *onAirUri, *onAirArtist, *poolSrc, *localCtxSrc;
 @property (strong) NSMutableDictionary *primedNext; // siguiente canción lista para el dial/Cambiar
 @property NSInteger poolTotal;
@@ -159,12 +158,7 @@ static NSImage *WaveIcon(void) {
     self.totals = [NSMutableDictionary dictionary]; self.recent = [NSMutableDictionary dictionary]; self.recentUris = [NSMutableArray array];
     self.arts = [NSMutableArray array]; self.recentArtists = [NSMutableArray array];
     self.trackPool = [NSMutableArray array]; self.blockedUris = [NSMutableSet set];
-    self.playlistSeeds = [NSMutableDictionary dictionary]; self.poolSrc = nil; self.poolTotal = 0;
-    {
-        NSData *sd = [NSData dataWithContentsOfFile:[[self supportDir] stringByAppendingPathComponent:@"playlistSeeds.json"]];
-        id sj = sd.length ? [NSJSONSerialization JSONObjectWithData:sd options:0 error:nil] : nil;
-        if ([sj isKindOfClass:[NSDictionary class]]) [self.playlistSeeds addEntriesFromDictionary:sj];
-    }
+    self.poolSrc = nil; self.poolTotal = 0;
     self.awaitingEnd = NO; self.overscreen = NO; self.backoffUntil = 0; self.last429NoteAt = 0;
     self.useLocalSpotify = [[NSFileManager defaultManager] fileExistsAtPath:@"/Applications/Spotify.app"];
     self.appleEventsDenied = NO;
@@ -580,12 +574,7 @@ static NSString *JS(id o, NSString *k) { id v = JOk(o, k); return [v isKindOfCla
 - (BOOL)artistBlocked:(NSString *)akey {
     return akey.length && ([self.recentArtists containsObject:akey] || [akey isEqualToString:(self.onAirArtist ?: @"")]);
 }
-- (BOOL)uriBlocked:(NSString *)uri {
-    if (!uri.length) return YES;
-    if (self.onAirUri.length && [uri isEqualToString:self.onAirUri]) return YES;
-    return [self.recentUris containsObject:uri];
-}
-// oEmbed público: carátula sin Web API (no gasta cuota /me)
+// oEmbed público: carátula sin Web API (no gasta cuota /me). Solo en background.
 - (NSString *)coverArtForTrackURI:(NSString *)uri timeout:(NSTimeInterval)timeoutSec {
     if (![uri isKindOfClass:[NSString class]] || !uri.length) return @"";
     NSString *enc = [uri stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]] ?: uri;
@@ -897,16 +886,29 @@ static NSString *JS(id o, NSString *k) { id v = JOk(o, k); return [v isKindOfCla
     self.poolTotal = 0;
     [[NSFileManager defaultManager] removeItemAtPath:[self poolPath] error:nil];
 }
-- (void)clearSongCache {
+// Solo memoria de sintonía/carátulas. NO toca auth, backoff ni lógica de Cambiar/AS.
+- (void)wipeTuneMemory {
     [self.recent removeAllObjects];
     [self.recentUris removeAllObjects];
     [self.recentArtists removeAllObjects];
     [self.totals removeAllObjects];
     [self.arts removeAllObjects];
+    [self.blockedUris removeAllObjects];
+    self.primedNext = nil;
+    self.localCtxSrc = nil;
+    self.onAirUri = nil;
+    self.onAirArtist = nil;
+    self.awaitingEnd = NO;
     [self clearTrackPool];
     self.store[@"arts"] = @[];
-    // NO tocar backoffUntil: limpiar memoria no debe romper la cuota de Spotify
+    self.store[@"recentUris"] = @[];
+    self.store[@"recentArtists"] = @[];
+    [self.store removeObjectForKey:@"last"];
     [self persistPlayMemory];
+}
+- (void)clearSongCache {
+    [self wipeTuneMemory];
+    // NO tocar backoffUntil: limpiar memoria no debe romper la cuota de Spotify
     [self saveStore];
     [self send:@{@"t": @"cacheCleared", @"arts": @[]}];
 }
@@ -917,15 +919,6 @@ static NSString *JS(id o, NSString *k) { id v = JOk(o, k); return [v isKindOfCla
     NSString *v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"3.0";
     NSString *b = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"0";
     return [NSString stringWithFormat:@"%@-b%@", v, b];
-}
-- (void)persistPlaylistSeeds {
-    NSString *path = [[self supportDir] stringByAppendingPathComponent:@"playlistSeeds.json"];
-    NSData *d = [NSJSONSerialization dataWithJSONObject:self.playlistSeeds ?: @{} options:NSJSONWritingPrettyPrinted error:nil];
-    if (d) [d writeToFile:path atomically:YES];
-}
-// DESACTIVADO (b25): quemaba cuota → 429 y Liked no abría. No llamar.
-- (void)probePlaylistsInBackground:(NSArray *)items {
-    (void)items;
 }
 // Solo reactivar el frente anterior. NUNCA hide de Spotify → eso es el flash abre/cierra.
 - (void)beginSpotifyASQuiet {
@@ -1099,13 +1092,6 @@ static double ASFloat(NSString *s) {
     NSString *out = [[NSString alloc] initWithData:od encoding:NSUTF8StringEncoding] ?: @"";
     return [out stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 }
-// Solo para cold-start / automatización. NO usar spotify:playlist: en Cambiar (abre ventana).
-- (BOOL)openSpotifyURI:(NSString *)uri {
-    if (!uri.length) return NO;
-    NSURL *u = [NSURL URLWithString:uri];
-    if (!u) return NO;
-    return [[NSWorkspace sharedWorkspace] openURLs:@[u] withAppBundleIdentifier:@"com.spotify.client" options:NSWorkspaceLaunchWithoutActivation additionalEventParamDescriptor:nil launchIdentifiers:nil];
-}
 - (BOOL)ensureSpotifyRunningQuiet {
     if ([[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.spotify.client"] count]) return YES;
     NSURL *appURL = [[NSWorkspace sharedWorkspace] URLForApplicationWithBundleIdentifier:@"com.spotify.client"];
@@ -1261,7 +1247,6 @@ static double ASFloat(NSString *s) {
     NSString *uri = live[@"uri"] ?: @"";
     if (![uri hasPrefix:@"spotify:track:"]) return nil;
     NSString *art = live[@"art"] ?: @"";
-    if (!art.length) art = [self coverArtForTrackURI:uri timeout:2.0] ?: @"";
     double dur = [live[@"dur"] doubleValue];
     double posSec = fromStart ? 0 : [self radioMidSecForDurationMs:dur];
     if (!fromStart && posSec >= 2.0) {
@@ -1480,11 +1465,6 @@ static double ASFloat(NSString *s) {
         NSDictionary *picked = nil;
         if ([self backoffLeft] <= 0) picked = [self pickTrack:src status:&st json:&ej];
         NSString *seed = picked[@"uri"];
-        if (![seed hasPrefix:@"spotify:track:"]) {
-            NSDictionary *probed = self.playlistSeeds[src];
-            if ([probed isKindOfClass:[NSDictionary class]] && [probed[@"seed"] isKindOfClass:[NSString class]])
-                seed = probed[@"seed"];
-        }
         if (![seed hasPrefix:@"spotify:track:"]) seed = [self seedTrackURIForSrc:src sameContext:NO];
         if ([seed hasPrefix:@"spotify:track:"] && ![self.blockedUris containsObject:seed]) {
             double posMs = fromStart ? 0 : 30000;
@@ -2131,8 +2111,7 @@ static double ASFloat(NSString *s) {
     if (!t[@"uri"]) return;
     NSMutableDictionary *p = [t mutableCopy];
     NSString *art = p[@"art"] ?: @"";
-    if (!art.length) art = [self coverArtForTrackURI:p[@"uri"]] ?: @"";
-    if (art.length) { p[@"art"] = art; [self rememberArt:art]; }
+    if (art.length) [self rememberArt:art];
     p[@"src"] = src;
     self.primedNext = p;
     [self send:@{@"t": @"primed", @"uri": p[@"uri"] ?: @"", @"name": p[@"name"] ?: @"", @"artist": p[@"artist"] ?: @"", @"art": art ?: @""}];
@@ -2153,8 +2132,7 @@ static double ASFloat(NSString *s) {
     NSString *name = (liveMatches ? (live[@"name"] ?: t[@"name"]) : (t[@"name"] ?: live[@"name"])) ?: @"";
     NSString *artist = (liveMatches ? (live[@"artist"] ?: t[@"artist"]) : (t[@"artist"] ?: live[@"artist"])) ?: @"";
     NSString *art = (liveMatches ? (live[@"art"] ?: t[@"art"]) : (t[@"art"] ?: live[@"art"])) ?: @"";
-    // Art listo ANTES del tuned: si no, la UI queda vacía y el oEmbed “después” se siente lento.
-    if (!art.length && uri.length) art = [self coverArtForTrackURI:uri timeout:2.2] ?: @"";
+    // Sin oEmbed síncrono: tuned al tiro; tapa por background si falta URL.
     double dur = liveMatches && live[@"dur"] ? [live[@"dur"] doubleValue] : ([t[@"dur"] doubleValue] ?: [live[@"dur"] doubleValue]);
     double pos = liveMatches && live[@"pos"] ? [live[@"pos"] doubleValue] : posSec;
     if (fromStart) {
@@ -2434,19 +2412,10 @@ static double ASFloat(NSString *s) {
         self.store[@"curName"] = curName;
         [self rememberPlaylistId:cur name:curName];
         if (![cur isEqualToString:prev]) {
-            [self.recent removeAllObjects];
-            [self.recentUris removeAllObjects];
-            [self.recentArtists removeAllObjects];
-            [self.totals removeObjectForKey:cur];
-            [self clearTrackPool];
-            self.primedNext = nil;
-            self.localCtxSrc = nil;
-            // Limpiar carátulas: si no, el flip muestra covers de la playlist anterior
-            [self.arts removeAllObjects];
-            self.store[@"arts"] = @[];
-            [self persistPlayMemory];
+            // Solo lo pedido: al cambiar playlist, limpiar cache + carátulas. Sin tocar Cambiar/AS.
+            [self wipeTuneMemory];
             [self send:@{@"t": @"cacheCleared", @"arts": @[]}];
-            [self radioLog:@"setSource clear arts %@ → %@", prev, cur];
+            [self radioLog:@"setSource wipeTuneMemory %@ → %@", prev, cur];
         }
         [self saveStore];
         // Siempre encolar (si busy=return se perdía el cambio de playlist)

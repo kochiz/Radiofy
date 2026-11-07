@@ -11,60 +11,10 @@ let st={cur:'liked',curName:'Liked Songs',radio:true,auth:false,clientId:''},S=n
 let panelOpen=true,durSec=0,seekDrag=false,dialDrag=false,acx=null,lastPos=-1,arts=[];
 let dialAnim=0,lastStation=-1,artFront='A',curArt='';
 
-const SKINS=['onair','neon','classic','vinyl','studio'];
-const SKIN_LABEL={onair:'On Air',neon:'Neon',classic:'Classic',vinyl:'Vinyl',studio:'Studio'};
-const SKIN_WAVE={onair:['#ff3b4a','#ff6b3b'],neon:['#3ee6ff','#b44cff'],classic:['#e8a04a','#c8792a'],vinyl:['#ff7a3a','#e040a0'],studio:['#2ee6ff','#3dffb5']};
+const SKIN_WAVE={onair:['#ff3b4a','#ff6b3b']};
 let curSkin='onair';
-function paintSkinBtn(){
- const t='Skin: '+(SKIN_LABEL[curSkin]||'On Air');
- ['skinBtn'].forEach(id=>{
-  const b=$(id);if(!b)return;
-  b.title=t;b.setAttribute('aria-label',t);
- });
-}
-function setSkinBtnOn(on){
- ['skinBtn'].forEach(id=>{const b=$(id);if(b)b.classList.toggle('on',!!on)});
-}
-function setSkin(name){
- if(SKINS.indexOf(name)<0)name='onair';
- curSkin=name;
- document.body.dataset.skin=name;
- paintSkinBtn();
- try{localStorage.setItem('radiofy.skin',name)}catch(e){}
- requestAnimationFrame(()=>{try{drawDial()}catch(e){}});
-}
-window.radiofySetSkin=setSkin;
- try{
- localStorage.setItem('radiofy.skin','onair');
- localStorage.setItem('radiofy.skinMig','multiverse-onair');
- setSkin('onair');
-}catch(e){setSkin('onair')}
-
-// studio waveform cosmético
-(function(){
- const cv=$('studioWave');if(!cv)return;
- const ctx=cv.getContext('2d');let t=0;
- const tick=()=>{
-  if(panelOpen&&curSkin==='studio'&&!document.body.classList.contains('over')){
-   t+=.08;const w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);
-   for(let layer=0;layer<3;layer++){
-    ctx.beginPath();ctx.lineWidth=1.4+layer*.3;
-    ctx.strokeStyle=layer===0?'#2ee6ff':layer===1?'#3dffb5':'#b8ff5a';
-    ctx.globalAlpha=.35+layer*.25;
-    for(let x=0;x<=w;x++){
-     const u=x/w;
-     const y=h/2+Math.sin(u*Math.PI*(2.2+layer)+t*(.9+layer*.2))*((18-layer*4)*(.5+.5*Math.sin(u*Math.PI)))
-      +Math.sin(u*Math.PI*8+t*1.4+layer)*3;
-     x?ctx.lineTo(x,y):ctx.moveTo(x,y);
-    }
-    ctx.stroke();
-   }
-   ctx.globalAlpha=1;
-  }
-  requestAnimationFrame(tick);
- };
- requestAnimationFrame(tick);
-})();
+document.body.dataset.skin='onair';
+try{localStorage.setItem('radiofy.skin','onair')}catch(e){}
 
 function toggleOver(){post({a:'overscreen',on:!document.body.classList.contains('over')})}
 function paintHz(){
@@ -267,18 +217,14 @@ function placeNeedle(){
 }
 function setFreq(f){freq=clampFreq(f);placeNeedle()}
 
-let dialLastX=0,dialTravel=false,bufferedTuned=null,landingArt='',coversLocked=false,tuneGen=0;
-let primedArt='',tuneWatch=0,phase='idle';
+let dialLastX=0,dialTravel=false,landingArt='',coversLocked=false,tuneGen=0;
+let tuneWatch=0,phase='idle';
 function setPhase(p){phase=p;document.body.dataset.phase=p}
 function cancelDialAnim(){if(dialAnim){cancelAnimationFrame(dialAnim);dialAnim=0}}
 function rememberArt(u){
  if(!u||arts.indexOf(u)>=0)return;
  arts.unshift(u);if(arts.length>40)arts.length=40;
  const im=new Image();im.src=u;
-}
-function pinLandingArt(u){
- if(!u)return;
- landingArt=u;rememberArt(u);coversLocked=true;showArt(u,true);
 }
 function showPendingArt(){
  // Solo carátula ya confirmada por tuned — nunca primed (suele ser otra pista).
@@ -322,8 +268,7 @@ function tune(opts){
  if(busy&&!opts.parallel)return;
  if(busy&&opts.parallel&&dialTuneSent)return;
  busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
- // Mantener tapa/nombre anteriores hasta tuned (primed ≠ final; borrar = vacío + demora).
- primedArt='';
+ // Mantener tapa/nombre anteriores hasta tuned.
  if(curArt){landingArt=curArt;coversLocked=true}
  else{coversLocked=false;landingArt=''}
  const gen=++tuneGen;
@@ -466,7 +411,6 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  lastId=s.id;lastPos=pos}
 
 function applyTuned(m){
- primedArt='';
  coversLocked=true;
  stopTuneFx();
  meta(m.name||'',m.artist||'');
@@ -478,7 +422,6 @@ function applyTuned(m){
  logoBoost=Math.max(logoBoost,5);
 }
 function onTuned(m){
- bufferedTuned=null;
  applyTuned(m);
  unlock(); // tapa lista → quitar busy del CTA (sin esperar done)
 }
@@ -490,7 +433,7 @@ function unlock(){
  // done/timeout no deben pasar a playing: abre applyTrack con state viejo.
  // applyTuned / err sí salen de tuning.
  if(phase!=='tuning') setPhase(lastId?'playing':'idle');
- if(!dialAnim){dialTravel=false;bufferedTuned=null}
+ if(!dialAnim) dialTravel=false;
 }
 
 window.onNative=function(m){
@@ -503,13 +446,11 @@ window.onNative=function(m){
   if(!busy){busy=true;setPhase('tuning');$('cam').classList.add('busy')}
   if(m.flip===false)return;
   playStatic();
-  // No borrar tapa: primed ≠ final, pero vaciar = flash vacío / carátula vieja tarde.
-  primedArt='';
   if(curArt){landingArt=curArt;coversLocked=true}
   else{coversLocked=false;landingArt=''}
  }
  else if(m.t=='cacheCleared'){
-  arts=[];primedArt='';landingArt='';coversLocked=false;
+  arts=[];landingArt='';coversLocked=false;
   if(Array.isArray(m.arts)&&m.arts.length)m.arts.forEach(rememberArt);
   else{art('');syncMini('')}
   if(!busy)setMsg('Memoria y carátulas reiniciadas');
@@ -529,11 +470,10 @@ window.onNative=function(m){
   else if(pls==null){pls=Array.isArray(m.items)?m.items:[];plErr=m.err||''}
   else if(m.err)plErr=m.err;
   paintPlist();
-  if(menu.classList.contains('on')&&mode=='src')renderMenu()
  }
  else if(m.t=='devices'){showDevices(Array.isArray(m.items)?m.items:[],!!m.pick,m.err)}
  else if(m.t=='webwait'){webWait=!!m.on;paintDev(curDev)}
- else if(m.t=='primed'){if(m.art){rememberArt(m.art);primedArt=m.art}}
+ else if(m.t=='primed'){if(m.art)rememberArt(m.art)}
  else if(m.t=='note')setMsg(m.msg);
  else if(m.t=='quota'){
   if(m.clear||m.sec===0){setQuota(0,'',true);return}
@@ -566,13 +506,6 @@ function expandFromMini(ev){if(ev)ev.stopPropagation();post({a:'overscreen',on:f
 $('miniLogo')&&($('miniLogo').onclick=expandFromMini);
 $('miniArtHit')&&($('miniArtHit').onclick=expandFromMini);
 $('miniInfoHit')&&($('miniInfoHit').onclick=expandFromMini);
-$('ov').onclick=ev=>{ev.stopPropagation();toggleOver()};
-$('resetMem').onclick=ev=>{
- ev.stopPropagation();
- unlock();
- post({a:'unlock'});
- post({a:'clearCache'});
-};
 function showAbout(m){
  const a=$('about');if(!a)return;
  if(m&&m.ver)$('aboutVer').textContent=m.ver;
@@ -597,7 +530,7 @@ function paintSrc(){
 }
 function paintPlist(){
  const box=$('plist');if(!box)return;
- let h='<div class="plist-title">Mis radios</div>';
+ let h='<div class="plist-label">MIS RADIOS</div>';
  const likedOn=st.cur==='liked';
  h+=`<button type="button" class="mi${likedOn?' on':''}" data-u="liked" data-n="Liked Songs"><div class="thumb"></div><div class="txt"><div class="nm">Liked Songs</div><div class="cnt">Spotify</div></div><span class="st">${likedOn?'en aire':'usar'}</span></button>`;
  if(pls==null)h+='<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">Cargando…</div>';
@@ -619,7 +552,7 @@ $('plist')&&$('plist').addEventListener('click',ev=>{
  st.cur=next;st.curName=name;paintSrc();
  if(changed&&st.auth){
   busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
-  arts=[];primedArt='';landingArt='';coversLocked=false;art('');syncMini('');
+  arts=[];landingArt='';coversLocked=false;art('');syncMini('');
   armTuneWatch();
   post({a:'setSource',cur:next,curName:name});
  }else save();
@@ -637,7 +570,7 @@ function onDialMove(ev){
  dialLastX=ev.clientX;
  if(Math.abs(ev.clientX-dialPtr)>5){
   if(!dialMoved){
-   dialMoved=true;dialTravel=true;bufferedTuned=null;showPendingArt();
+   dialMoved=true;dialTravel=true;showPendingArt();
    if(!dialTuneSent){dialTuneSent=true;tune({fromDial:true,parallel:true})}
   }
  }
@@ -653,8 +586,7 @@ function onDialUp(ev){
  dialTravel=false;
  if(dialMoved){
   setFreq(target);
-  if(bufferedTuned)flushBufferedTuned();
-  else if(!dialTuneSent)tune({fromDial:true});
+  if(!dialTuneSent)tune({fromDial:true});
  }
  else{
   tune({fromDial:true,parallel:true});
@@ -666,73 +598,26 @@ dial.addEventListener('pointermove',onDialMove);
 dial.addEventListener('pointerup',onDialUp);
 dial.addEventListener('pointercancel',()=>{dialDrag=false;cancelDialAnim()});
 
-/* seek/barra eliminados */
-function seekFromX(){return 0}
-
-const menu=$('menu');let mode='src';
+const menu=$('menu');let mode='dev';
 const DV={Computer:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
  Smartphone:'<svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></svg>',
  Speaker:'<svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><circle cx="12" cy="14" r="3"/><path d="M12 7h.01"/></svg>'};
-const SKIN_IC={
- onair:'<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h2M11 10v4M15 11v2"/><circle cx="19" cy="6" r="2"/></svg>',
- neon:'<svg viewBox="0 0 24 24"><path d="M4 14c2-6 4-8 8-8s6 2 8 8"/><circle cx="12" cy="8" r="1.5"/></svg>',
- classic:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 12h10M12 9v6"/></svg>',
- vinyl:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></svg>',
- studio:'<svg viewBox="0 0 24 24"><path d="M3 12h2l2-6 3 12 2-8 2 4h7"/></svg>'
-};
-function renderMenu(){mode='src';const row=(u,n,ic,sub)=>`<button class="mi" data-u="${esc(u)}" data-n="${esc(n)}">${st.cur==u?I.check:I.dot}${ic}<span class="nm">${esc(n)}</span>${sub!=null?`<span class="sub">${esc(sub)}</span>`:''}</button>`;
- let h=row('liked','Liked Songs',I.heart,null)+'<div class="mhr"></div>';
- if(pls==null)h+='<div class="ld">Cargando playlists…</div>';
- else{const list=pls.filter(p=>p.own!==false);h+=list.map(p=>row(p.id,p.name,I.list,p.n)).join('');
-  if(!list.length)h+=`<div class="ld">${esc(plErr||'No hay playlists.')}</div>`}
- menu.innerHTML=h}
-function renderSkinMenu(){
- mode='skin';
- let h='<div class="mt">Skin</div>';
- SKINS.forEach(id=>{
-  h+=`<button class="mi" data-skin="${id}">${curSkin===id?I.check:I.dot}${SKIN_IC[id]}<span class="nm">${SKIN_LABEL[id]}</span></button>`;
- });
- h+='<div class="mhr"></div><button class="mi" data-act="resetMem">'+I.dot+'<span class="nm">Reiniciar sintonía</span></button>';
- menu.innerHTML=h;
-}
-function openMenu(){renderMenu();menu.classList.add('on');$('dv').classList.remove('on');setSkinBtnOn(false);$('chip').classList.add('on');post({a:'playlists',force:true})}
-function openSkinMenu(){
- renderSkinMenu();menu.classList.add('on');
- $('chip').classList.remove('on');$('dv').classList.remove('on');setSkinBtnOn(true);
-}
-function closeMenu(){menu.classList.remove('on');$('chip').classList.remove('on');$('dv').classList.remove('on');setSkinBtnOn(false);mode='src'}
-$('chip').onclick=ev=>{ev.stopPropagation();if(menu.classList.contains('on')&&mode=='src')closeMenu();else openMenu()};
-const onSkinClick=ev=>{ev.stopPropagation();if(menu.classList.contains('on')&&mode=='skin')closeMenu();else openSkinMenu()};
-$('skinBtn').onclick=onSkinClick;
+function closeMenu(){menu.classList.remove('on');$('dv').classList.remove('on');mode='dev'}
 let curDev={id:'',name:'',type:''},webWait=false,pick=false;
 function paintDev(d){if(d)curDev=d;const b=$('dv');b.classList.toggle('wait',webWait);
  $('dvI').innerHTML=DV[curDev.type]||DV.Speaker;$('dvN').textContent=webWait?'Buscando reproductor web…':(curDev.name||'Elegir dispositivo')}
 $('dv').onclick=ev=>{ev.stopPropagation();if(menu.classList.contains('on')&&mode=='dev'){closeMenu();return}
- menu.innerHTML='<div class="ld">Buscando dispositivos…</div>';mode='dev';menu.classList.add('on');$('dv').classList.add('on');$('chip').classList.remove('on');setSkinBtnOn(false);post({a:'devlist'})};
+ menu.innerHTML='<div class="ld">Buscando dispositivos…</div>';mode='dev';menu.classList.add('on');$('dv').classList.add('on');post({a:'devlist'})};
 function showDevices(ds,pk,err){mode='dev';pick=pk;let h='<div class="mt">'+(pk?'¿Dónde suena?':'Salida')+'</div>'+`<button class="mi here" data-act="here">${I.dot}${DV.Computer}<span class="nm">Escuchar en este Mac</span></button><div class="mhr"></div>`;
  if(err)h+=`<div class="ld">${esc(err)}</div>`;
  if(ds.length){h+=ds.map(d=>`<button class="mi${d.restricted?' dis':''}" data-dev="${esc(d.id)}" data-n="${esc(d.name)}" data-ty="${esc(d.type)}">${d.active?I.check:I.dot}${DV[d.type]||DV.Speaker}<span class="nm">${esc(d.name)}</span>${d.active?'<span class="act">activo</span>':''}</button>`).join('')}
  else if(!err)h+='<div class="nd2">Abre open.spotify.com en Safari o Spotify en tu teléfono, dale play una vez y vuelve a pulsar Cambiar.<button class="b p" data-act="web" style="display:block">Abrir open.spotify.com</button></div>';
- menu.innerHTML=h;menu.classList.add('on');$('chip').classList.remove('on');setSkinBtnOn(false);$('dv').classList.add('on')}
+ menu.innerHTML=h;menu.classList.add('on');$('dv').classList.add('on')}
 menu.addEventListener('click',ev=>{ev.stopPropagation();
- // OJO: body tiene data-skin → NUNCA usar closest('[data-skin]') a pelo (siempre pega en body = "Skin Neon")
  const mi=ev.target.closest('button.mi');if(!mi||!menu.contains(mi))return;
- if(mi.hasAttribute('data-skin')){setSkin(mi.getAttribute('data-skin'));closeMenu();return}
- if(mi.hasAttribute('data-act')){const k=mi.getAttribute('data-act');closeMenu();if(k=='web')post({a:'openWeb'});else if(k=='here'){webWait=true;paintDev();setMsg('Pulsa play una vez en open.spotify.com; Radiofy pasará la música a este Mac sola.');post({a:'thisMac'})}else if(k=='resetMem'){const b=$('resetMem');if(b)b.click()}return}
+ if(mi.hasAttribute('data-act')){const k=mi.getAttribute('data-act');closeMenu();if(k=='web')post({a:'openWeb'});else if(k=='here'){webWait=true;paintDev();setMsg('Pulsa play una vez en open.spotify.com; Radiofy pasará la música a este Mac sola.');post({a:'thisMac'})}return}
  if(mi.hasAttribute('data-dev')){closeMenu();const dv={id:mi.getAttribute('data-dev'),name:mi.getAttribute('data-n'),type:mi.getAttribute('data-ty')};webWait=false;paintDev(dv);
-  if(pick){busy=true;setPhase('tuning');$('cam').classList.add('busy');playStatic();primedArt='';armTuneWatch();post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
- if(mi.hasAttribute('data-u')){
-  const next=mi.getAttribute('data-u'),name=mi.getAttribute('data-n')||'Playlist',changed=next!==st.cur;
-  st.cur=next;st.curName=name;paintSrc();closeMenu();
-  if(changed&&st.auth){
-   // Aunque busy: encolar setSource (nativo serializa); no perder el cambio
-   busy=true;setPhase('tuning');$('cam').classList.add('busy');setMsg('');playStatic();lastPos=-1;
-   // Limpiar carátulas YA: no mostrar covers de la playlist anterior
-   arts=[];primedArt='';landingArt='';coversLocked=false;art('');syncMini('');
-   armTuneWatch();
-   post({a:'setSource',cur:next,curName:name});
-  }else save();
- }
+  if(pick){busy=true;setPhase('tuning');$('cam').classList.add('busy');playStatic();armTuneWatch();post(Object.assign({a:'useDevice',radio:true},dv))}else post(Object.assign({a:'transfer'},dv));return}
 });
 document.addEventListener('click',()=>{if(menu.classList.contains('on'))closeMenu()});
 document.addEventListener('keydown',ev=>{if(ev.key=='Escape'){ev.preventDefault();if(!$('about').hidden)hideAbout();else if(menu.classList.contains('on'))closeMenu();else if(document.body.classList.contains('over'))post({a:'overscreen',on:false});else post({a:'close'})}});
