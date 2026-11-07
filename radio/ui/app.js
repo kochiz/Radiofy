@@ -389,9 +389,8 @@ function setPlaying(on){document.body.classList.toggle('playing',!!on)}
 
 function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  if(s.sp=='err'){meta('Spotify no responde',s.msg||'Inténtalo de nuevo');setPlaying(false);return}
- // Durante sintonía / tapa locked el poll no pisa con otra canción.
+ // Durante sintonía el poll no pisa. Post-tune (playing): sí adoptar asiento de playlist.
  if(!instant&&(busy||phase==='tuning'||dialTravel))return;
- if(!instant&&coversLocked&&s.id&&lastId&&s.id!==lastId)return;
  if(!s.id){
   if(busy||dialTravel||phase==='tuning'||lastId)return;
   meta('Sin reproducción','Pulsa Cambiar para sintonizar');art('');prog(0,0);durSec=0;setPlaying(false);return
@@ -406,6 +405,12 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
  }else if(!coversLocked){
   meta(s.name||'',s.artist||'');
   if(s.art){rememberArt(s.art);art(s.art,true)}
+  else art('');
+ }else if(phase==='playing'){
+  // Asiento post-playlist: nombre ya; tapa solo si viene de esta id (no reusar vieja).
+  meta(s.name||'',s.artist||'');
+  if(s.art){landingArt=s.art;rememberArt(s.art);art(s.art,true);coversLocked=true}
+  else{landingArt='';art('');coversLocked=true}
  }
  if(smooth)prog(Math.min(durSec,pos+1),durSec,true);else prog(pos,durSec,false);
  lastId=s.id;lastPos=pos}
@@ -413,17 +418,18 @@ function applyTrack(s,instant){S=s;if(s.dev&&s.dev.id)paintDev(s.dev);
 function applyTuned(m){
  coversLocked=true;
  stopTuneFx();
+ // Nombre ya; tapa solo de ESTA uri. Sin art → vaciar (no dejar tapa de la canción anterior).
  meta(m.name||'',m.artist||'');
- // instant: el fade de 1s dejaba la carátula "a medias" y se sentía lenta
  if(m.art){landingArt=m.art;rememberArt(m.art);art(m.art,true)}
+ else{landingArt='';art('')}
  durSec=(m.dur||0)/1000;const pos=m.pos||0;prog(pos,durSec,false);lastPos=pos;lastId=m.uri||'';
- S=Object.assign({},S||{},{id:m.uri,name:m.name,artist:m.artist,art:m.art,dur:m.dur,pos:pos,st:'playing'});
+ S=Object.assign({},S||{},{id:m.uri,name:m.name,artist:m.artist,art:m.art||'',dur:m.dur,pos:pos,st:'playing'});
  setPlaying(true);setPhase('playing');
  logoBoost=Math.max(logoBoost,5);
 }
 function onTuned(m){
  applyTuned(m);
- unlock(); // tapa lista → quitar busy del CTA (sin esperar done)
+ unlock(); // nombre listo → liberar CTA; tapa puede llegar después
 }
 
 function unlock(){
@@ -530,7 +536,7 @@ function paintSrc(){
 }
 function paintPlist(){
  const box=$('plist');if(!box)return;
- let h='<div class="plist-label">MIS RADIOS</div>';
+ let h='';
  const likedOn=st.cur==='liked';
  h+=`<button type="button" class="mi${likedOn?' on':''}" data-u="liked" data-n="Liked Songs"><div class="thumb"></div><div class="txt"><div class="nm">Liked Songs</div><div class="cnt">Spotify</div></div><span class="st">${likedOn?'en aire':'usar'}</span></button>`;
  if(pls==null)h+='<div class="ld" style="padding:8px;color:rgba(255,255,255,.4)">Cargando…</div>';

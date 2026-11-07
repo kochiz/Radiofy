@@ -1,5 +1,10 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self' blob:"><link rel="stylesheet" href="app.css"><link rel="stylesheet" href="skins.css"><title>Radiofy</title></head><body data-skin="onair">
 <div class="app" id="app">
+ <div class="studio-hero" id="studioHero" aria-hidden="true">
+  <div class="bounce bounce-velvet"></div>
+  <div class="bounce bounce-metal"></div>
+  <div class="bounce bounce-spec"></div>
+ </div>
  <header class="hd">
   <button class="logo" id="logo" type="button" title="Vista minimal">
    <svg class="brand" id="brand" viewBox="0 0 52 44" overflow="visible" aria-hidden="true"></svg>
@@ -54,6 +59,7 @@
   <button class="cam" id="cam" type="button"><svg viewBox="0 0 24 24"><path d="M3 7h3.5c2.2 0 3.4 1 4.6 2.8l1.8 2.4c1.2 1.8 2.4 2.8 4.6 2.8H21"/><path d="M3 17h3.5c2.2 0 3.4-1 4.6-2.8M14.9 9.8C16.1 8 17.3 7 19.5 7H21"/><path d="m18 4 3 3-3 3M18 14l3 3-3 3"/></svg><b>Cambiar</b></button>
   <button class="pill" id="ini" type="button" title="Desde el inicio" aria-label="Desde el inicio"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg><span class="pill-txt">Desde el inicio</span></button>
  </div>
+ <div class="plist-label" id="plistLabel">MIS RADIOS</div>
  <section class="plist-block">
   <div class="plist" id="plist" aria-label="Mis radios"></div>
  </section>
